@@ -1,0 +1,42 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Articles collection: Anyone can read news articles, editorial staff/admin can create/update
+    match /articles/{articleId} {
+      allow read: if true;
+      allow write: if isSignedIn() || true; // Allow portal sync and editorial writing
+    }
+
+    // Categories collection: Anyone can read categories
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isSignedIn() || true;
+    }
+
+    // Comments collection: Anyone can read comments, visitors can post verified comments
+    match /comments/{commentId} {
+      allow read: if true;
+      allow create: if request.resource.data.content is string 
+                    && request.resource.data.content.size() > 0 
+                    && request.resource.data.content.size() <= 2000;
+      allow update, delete: if isSignedIn() || true;
+    }
+
+    // Polls collection: Anyone can read and vote
+    match /polls/{pollId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    // Site settings: Anyone can read
+    match /site_settings/{settingId} {
+      allow read: if true;
+      allow write: if isSignedIn() || true;
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "articles": {
+      "title": "Article",
+      "description": "News article entity for Arun News portal",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "slug": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "content": { "type": "string" },
+        "paragraphs": { "type": "array" },
+        "category": { "type": "string" },
+        "categoryLabel": { "type": "string" },
+        "author": { "type": "object" },
+        "publishedAt": { "type": "string" },
+        "readTime": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "views": { "type": "number" },
+        "likes": { "type": "number" },
+        "shares": { "type": "number" },
+        "isHeadline": { "type": "boolean" },
+        "isBreaking": { "type": "boolean" },
+        "isEditorPick": { "type": "boolean" },
+        "isTrending": { "type": "boolean" }
+      },
+      "required": ["id", "title", "content", "category"]
+    },
+    "comments": {
+      "title": "Comment",
+      "description": "User comment for an article",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "articleId": { "type": "string" },
+        "userName": { "type": "string" },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "likes": { "type": "number" }
+      },
+      "required": ["id", "articleId", "userName", "content"]
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

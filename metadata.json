@@ -1,0 +1,6 @@
+{
+  "name": "Arun News - Portal Berita & CMS Redaksi",
+  "description": "Portal berita modern, responsif, dan terpercaya dengan Meja Redaksi (CMS), perapihan draf artikel otomatis, dan kontrol penuh pengaturan modul portal berita.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
