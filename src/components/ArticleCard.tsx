@@ -43,9 +43,10 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
   const [copied, setCopied] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
+  const shareTarget = encodeURIComponent(article.slug || article.id);
   const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/#/article/${article.slug || article.id}`
-    : `https://arunnews.id/#/article/${article.slug || article.id}`;
+    ? `${window.location.origin}/article/${shareTarget}`
+    : `https://portalarunews.com/article/${shareTarget}`;
   const cleanExcerpt = article.excerpt || article.content?.substring(0, 160) || '';
   const shareText = `📰 *${article.title}*\n\n${cleanExcerpt}...\n\n👉 Baca warta di Arun News:\n${shareUrl}`;
 

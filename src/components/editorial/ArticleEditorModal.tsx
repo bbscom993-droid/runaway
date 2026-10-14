@@ -304,7 +304,7 @@ export const ArticleEditorModal: React.FC<ArticleEditorModalProps> = ({
     const finalArticle: NewsArticle = {
       id: editingArticle?.id || `art-${Date.now()}`,
       title: title.trim(),
-      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      slug: (editingArticle?.slug || title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')) || `warta-${Date.now()}`,
       excerpt: excerpt.trim() || (paragraphs[0] ? paragraphs[0].slice(0, 150) + '...' : content.slice(0, 150) + '...'),
       content: content.trim(),
       paragraphs: paragraphs.length > 0 ? paragraphs : [content.trim()],

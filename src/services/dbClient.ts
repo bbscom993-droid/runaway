@@ -110,27 +110,76 @@ export async function fetchArticlesFromDB(): Promise<NewsArticle[] | null> {
 export async function fetchArticleByIdFromDB(idOrSlug: string): Promise<NewsArticle | null> {
   try {
     if (!idOrSlug) return null;
+    let clean = idOrSlug.trim();
+    try {
+      clean = decodeURIComponent(clean).trim();
+    } catch {}
+    clean = clean.replace(/^\/+|\/+$/g, '');
+    if (!clean) return null;
+
     // 1. Direct get by Document ID
-    const directDoc = await getDoc(doc(db, 'articles', idOrSlug));
-    if (directDoc.exists()) {
-      return parseArticleData({ id: directDoc.id, ...directDoc.data() });
-    }
+    try {
+      const directDoc = await getDoc(doc(db, 'articles', clean));
+      if (directDoc.exists()) {
+        return parseArticleData({ id: directDoc.id, ...directDoc.data() });
+      }
+    } catch {}
 
     // 2. Query by slug
-    const qSlug = query(collection(db, 'articles'), where('slug', '==', idOrSlug), limit(1));
-    const slugSnap = await getDocs(qSlug);
-    if (!slugSnap.empty) {
-      const d = slugSnap.docs[0];
-      return parseArticleData({ id: d.id, ...d.data() });
+    try {
+      const qSlug = query(collection(db, 'articles'), where('slug', '==', clean), limit(1));
+      const slugSnap = await getDocs(qSlug);
+      if (!slugSnap.empty) {
+        const d = slugSnap.docs[0];
+        return parseArticleData({ id: d.id, ...d.data() });
+      }
+    } catch {}
+
+    // 3. Query by lowercase slug
+    const cleanLower = clean.toLowerCase();
+    if (cleanLower !== clean) {
+      try {
+        const qLower = query(collection(db, 'articles'), where('slug', '==', cleanLower), limit(1));
+        const lowerSnap = await getDocs(qLower);
+        if (!lowerSnap.empty) {
+          const d = lowerSnap.docs[0];
+          return parseArticleData({ id: d.id, ...d.data() });
+        }
+      } catch {}
     }
 
-    // 3. Query by id field
-    const qId = query(collection(db, 'articles'), where('id', '==', idOrSlug), limit(1));
-    const idSnap = await getDocs(qId);
-    if (!idSnap.empty) {
-      const d = idSnap.docs[0];
-      return parseArticleData({ id: d.id, ...d.data() });
-    }
+    // 4. Query by id field
+    try {
+      const qId = query(collection(db, 'articles'), where('id', '==', clean), limit(1));
+      const idSnap = await getDocs(qId);
+      if (!idSnap.empty) {
+        const d = idSnap.docs[0];
+        return parseArticleData({ id: d.id, ...d.data() });
+      }
+    } catch {}
+
+    // 5. Fallback: inspect snapshot of collection in case slug has hyphens/accents
+    try {
+      const allSnap = await getDocs(collection(db, 'articles'));
+      if (!allSnap.empty) {
+        for (const docSnap of allSnap.docs) {
+          const data = docSnap.data() as any;
+          if (!data) continue;
+          const docId = (docSnap.id || '').toLowerCase();
+          const artId = (data.id || '').toLowerCase();
+          const artSlug = (data.slug || '').toLowerCase();
+          if (
+            docId === cleanLower ||
+            artId === cleanLower ||
+            artSlug === cleanLower ||
+            docId.replace('art-', '') === cleanLower.replace('art-', '') ||
+            artId.replace('art-', '') === cleanLower.replace('art-', '')
+          ) {
+            return parseArticleData({ id: docSnap.id, ...data });
+          }
+        }
+      }
+    } catch {}
 
     return null;
   } catch (err) {
@@ -203,10 +252,52 @@ export async function deleteArticleFromDB(id: string): Promise<boolean> {
   }
 }
 
+export async function saveCategoryToDB(category: Category): Promise<boolean> {
+  try {
+    const cleaned = sanitizeForFirestore(category);
+    await setDoc(doc(db, 'categories', category.id), cleaned, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn('Failed to save category to Firestore:', err);
+    return false;
+  }
+}
+
+export async function deleteCategoryFromDB(id: string): Promise<boolean> {
+  try {
+    await deleteDoc(doc(db, 'categories', id));
+    return true;
+  } catch (err) {
+    console.warn('Failed to delete category from Firestore:', err);
+    return false;
+  }
+}
+
+export async function fetchCategoriesFromDB(): Promise<Category[] | null> {
+  try {
+    const snapshot = await getDocs(collection(db, 'categories'));
+    if (!snapshot.empty) {
+      const list: Category[] = [];
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as Category;
+        if (data && (data.id || docSnap.id) && data.name) {
+          list.push({ ...data, id: data.id || docSnap.id });
+        }
+      });
+      if (list.length > 0) return list;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to fetch categories from Firestore:', err);
+    return null;
+  }
+}
+
 export async function seedCategoriesToDB(categoriesList: Category[]): Promise<boolean> {
   try {
     for (const cat of categoriesList) {
-      await setDoc(doc(db, 'categories', cat.id), cat, { merge: true });
+      const cleaned = sanitizeForFirestore(cat);
+      await setDoc(doc(db, 'categories', cat.id), cleaned, { merge: true });
     }
     return true;
   } catch (err) {

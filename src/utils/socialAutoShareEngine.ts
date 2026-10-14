@@ -24,12 +24,11 @@ export const DEFAULT_SOCIAL_AUTO_SHARE_SETTINGS: SocialAutoShareSettings = {
 };
 
 export function getArticleShareUrl(article: NewsArticle): string {
+  const target = encodeURIComponent(article.slug || article.id);
   if (typeof window !== 'undefined') {
-    const origin = window.location.origin;
-    const path = window.location.pathname.replace(/\/+$/, '');
-    return `${origin}${path}/#/article/${article.slug || article.id}`;
+    return `${window.location.origin}/article/${target}`;
   }
-  return `https://portalarunews.com/#/article/${article.slug || article.id}`;
+  return `/article/${target}`;
 }
 
 export function formatSocialShareMessage(

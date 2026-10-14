@@ -548,7 +548,9 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
 
     // Define correct description, url, and image
     const articleDescription = article.excerpt || article.content.substring(0, 160) + '...';
-    const articleUrl = `${window.location.origin}/#/article/${article.slug || article.id}`;
+    const articleUrl = typeof window !== 'undefined' 
+      ? `${window.location.origin}/article/${encodeURIComponent(article.slug || article.id)}`
+      : `/article/${encodeURIComponent(article.slug || article.id)}`;
     const articleImage = article.imageUrl || '';
 
     // Set standard and Open Graph tags
@@ -1046,7 +1048,9 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
 
   const getArticleShareUrl = () => {
     if (!article) return typeof window !== 'undefined' ? window.location.origin : '';
-    return `${window.location.origin}/article/${article.slug || article.id}`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const target = encodeURIComponent(article.slug || article.id);
+    return `${origin}/article/${target}`;
   };
 
   const handleSendToSpecificWa = (e?: React.FormEvent) => {

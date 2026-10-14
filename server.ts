@@ -1392,11 +1392,20 @@ TUGAS DAN INSTRUKSI:
   }
 
   async function getArticleMeta(idOrSlug: string, origin: string) {
-    const cleanId = (idOrSlug || "").trim();
+    let cleanId = (idOrSlug || "").trim();
+    try {
+      cleanId = decodeURIComponent(cleanId).trim();
+    } catch {}
+    cleanId = cleanId.replace(/^\/+|\/+$/g, "");
 
     // 1. Search in INITIAL_ARTICLES
     const staticArt = INITIAL_ARTICLES.find(
-      (a) => a.id === cleanId || a.slug === cleanId || a.id.replace("art-", "") === cleanId.replace("art-", "")
+      (a) =>
+        a.id === cleanId ||
+        a.slug === cleanId ||
+        a.id.toLowerCase() === cleanId.toLowerCase() ||
+        a.slug.toLowerCase() === cleanId.toLowerCase() ||
+        a.id.replace("art-", "") === cleanId.replace("art-", "")
     );
 
     if (staticArt) {
@@ -1468,7 +1477,39 @@ TUGAS DAN INSTRUKSI:
       console.warn("Firestore SSR meta fetch error:", err);
     }
 
-    // 3. Fallback to top headline article
+    // 3. Fallback to Cloud SQL if available
+    try {
+      if (process.env.SQL_HOST) {
+        const { getDBArticles } = await import("./src/db/repository.ts");
+        const dbArticles = await getDBArticles();
+        const found = dbArticles.find(
+          (a) =>
+            a.id === cleanId ||
+            a.slug === cleanId ||
+            a.id.toLowerCase() === cleanId.toLowerCase() ||
+            a.slug.toLowerCase() === cleanId.toLowerCase()
+        );
+        if (found) {
+          let img = found.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&h=630&q=80";
+          if (!img.startsWith("http://") && !img.startsWith("https://")) {
+            img = `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
+          }
+          return {
+            title: found.title,
+            description: found.excerpt || (found.paragraphs ? found.paragraphs[0] : "") || "Warta Terpercaya di Arun News",
+            imageUrl: img,
+            url: `${origin}/article/${found.slug || found.id}`,
+            author: found.authorName || (found as any).author?.name || "Redaksi Arun News",
+            category: found.categoryLabel || found.category || "Berita",
+            type: "article",
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Cloud SQL SSR meta fetch error:", err);
+    }
+
+    // 4. Fallback to top headline article
     const topArt = INITIAL_ARTICLES[0];
     return {
       title: topArt ? topArt.title : "Arun News - Portal Berita Terkini & Terpercaya",
@@ -1639,26 +1680,56 @@ TUGAS DAN INSTRUKSI:
       res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).send(rawHtml);
     } catch (e: any) {
       console.error("Failed to render dynamic Open Graph HTML:", e);
-      res.status(500).send("Internal Server Error");
+      try {
+        const fallbackPath = process.env.NODE_ENV === "production"
+          ? path.resolve(process.cwd(), "dist", "index.html")
+          : path.resolve(process.cwd(), "index.html");
+        res.sendFile(fallbackPath);
+      } catch {
+        res.status(500).send("Internal Server Error");
+      }
     }
   }
 
-  // 1. Article dynamic routes (/article/:id, /berita/:id, /warta/:id)
-  app.get(["/article/:id", "/berita/:id", "/warta/:id"], async (req, res) => {
+  // 1. Article dynamic routes (/article/:id, /artikel/:id, /berita/:id, /warta/:id, /baca/:id, /news/:id)
+  const articleRoutePatterns = [
+    "/article/:id",
+    "/article/:id/*",
+    "/artikel/:id",
+    "/artikel/:id/*",
+    "/berita/:id",
+    "/berita/:id/*",
+    "/warta/:id",
+    "/warta/:id/*",
+    "/baca/:id",
+    "/baca/:id/*",
+    "/news/:id",
+    "/news/:id/*",
+  ];
+
+  app.get(articleRoutePatterns, async (req, res) => {
     const origin = getRequestOrigin(req);
     const meta = await getArticleMeta(req.params.id, origin);
     await serveHtmlWithOg(req, res, meta);
   });
 
+  // Base article directory roots without specific ID
+  app.get(["/article", "/artikel", "/berita", "/warta", "/baca", "/news"], async (req, res) => {
+    const origin = getRequestOrigin(req);
+    const target = (req.query.article as string) || (req.query.berita as string) || (req.query.id as string) || "art-1";
+    const meta = await getArticleMeta(target, origin);
+    await serveHtmlWithOg(req, res, meta);
+  });
+
   // 2. Photo gallery dynamic routes (/foto/:id)
-  app.get("/foto/:id", async (req, res) => {
+  app.get(["/foto/:id", "/foto/:id/*"], async (req, res) => {
     const origin = getRequestOrigin(req);
     const meta = getPhotoMeta(req.params.id, origin);
     await serveHtmlWithOg(req, res, meta);
   });
 
   // 3. Video news dynamic routes (/video/:id)
-  app.get("/video/:id", async (req, res) => {
+  app.get(["/video/:id", "/video/:id/*"], async (req, res) => {
     const origin = getRequestOrigin(req);
     const meta = getVideoMeta(req.params.id, origin);
     await serveHtmlWithOg(req, res, meta);
@@ -1667,7 +1738,7 @@ TUGAS DAN INSTRUKSI:
   // 4. Root & query-param crawler interception (/ and /?article=...)
   app.get("/", async (req, res, next) => {
     const origin = getRequestOrigin(req);
-    const targetArticle = req.query.article as string || req.query.berita as string;
+    const targetArticle = (req.query.article as string) || (req.query.berita as string) || (req.query.id as string) || (req.query.slug as string);
 
     if (targetArticle) {
       const meta = await getArticleMeta(targetArticle, origin);
@@ -1683,14 +1754,36 @@ TUGAS DAN INSTRUKSI:
     next();
   });
 
-  // Vite middleware for development
+  // 5. Static & SPA Fallback routing
   if (process.env.NODE_ENV !== "production") {
     app.use(vite.middlewares);
+    // Explicit SPA fallback for any route not captured by Vite's static/middleware
+    app.get("*", async (req, res, next) => {
+      if (req.path.startsWith("/api/")) {
+        return res.status(404).json({ error: "API route not found" });
+      }
+      try {
+        const origin = getRequestOrigin(req);
+        const meta = await getArticleMeta("art-1", origin);
+        await serveHtmlWithOg(req, res, meta);
+      } catch (err) {
+        next(err);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get("*", async (req, res, next) => {
+      if (req.path.startsWith("/api/")) {
+        return res.status(404).json({ error: "API route not found" });
+      }
+      try {
+        const origin = getRequestOrigin(req);
+        const meta = await getArticleMeta("art-1", origin);
+        await serveHtmlWithOg(req, res, meta);
+      } catch (err) {
+        res.sendFile(path.join(distPath, "index.html"));
+      }
     });
   }
 

@@ -55,9 +55,10 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
 
   if (!isOpen) return null;
 
+  const shareTarget = encodeURIComponent(article.slug || article.id);
   const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/#/article/${article.slug || article.id}`
-    : `https://arunnews.id/#/article/${article.slug || article.id}`;
+    ? `${window.location.origin}/article/${shareTarget}`
+    : `/article/${shareTarget}`;
 
   const cleanExcerpt = article.excerpt || (article.paragraphs && article.paragraphs[0]) || article.content.substring(0, 160) + '...';
   const shareFullText = `📰 *${article.title}*\n\n${cleanExcerpt}\n\n👉 Baca warta selengkapnya di Arun News:\n${shareUrl}`;

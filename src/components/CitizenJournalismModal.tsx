@@ -240,7 +240,7 @@ export const CitizenJournalismModal: React.FC<CitizenJournalismModalProps> = ({
     const newArticle: NewsArticle = {
       id: `laporan-${Date.now()}`,
       title: title.trim(),
-      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `laporan-${Date.now()}`,
       excerpt: description.slice(0, 150) + (description.length > 150 ? '...' : ''),
       content: description.trim(),
       paragraphs: paragraphs.length > 0 ? paragraphs : [description.trim()],

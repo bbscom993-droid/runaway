@@ -4,6 +4,8 @@ import {
   fetchArticlesFromDB, 
   saveArticleToDB, 
   seedCategoriesToDB,
+  fetchCategoriesFromDB,
+  saveCategoryToDB,
   fetchArticleByIdFromDB,
   subscribeArticlesFromDB
 } from './services/dbClient';
@@ -92,7 +94,8 @@ import {
   Radio,
   ExternalLink,
   ChevronUp,
-  Minimize2
+  Minimize2,
+  FileQuestion
 } from 'lucide-react';
 
 const isWithinTimeRange = (publishedAt: string, range: 'all' | '24h' | '7d' | '30d') => {
@@ -178,6 +181,7 @@ export default function App() {
 
   const isEditorialRoute = useMemo(() => {
     const cleanHash = currentHash.toLowerCase().replace(/^#\/?/, '');
+    const cleanPath = currentPath.toLowerCase().replace(/^\/+|\/+$/g, '');
     return (
       cleanHash === 'redaksi' ||
       cleanHash === 'admin' ||
@@ -187,9 +191,14 @@ export default function App() {
       cleanHash.startsWith('redaksi') ||
       cleanHash.startsWith('admin') ||
       cleanHash.startsWith('cms') ||
-      cleanHash.startsWith('editor')
+      cleanHash.startsWith('editor') ||
+      cleanPath === 'admin' ||
+      cleanPath === 'redaksi' ||
+      cleanPath === 'editor' ||
+      cleanPath === 'cms' ||
+      cleanPath === 'login'
     );
-  }, [currentHash]);
+  }, [currentHash, currentPath]);
 
   const navigateToEditorial = () => {
     window.location.hash = '#/admin';
@@ -247,10 +256,14 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && (parsed.length !== CATEGORIES.length || !parsed.some(c => c.id === 'akpersi'))) {
-          return CATEGORIES;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Keep all existing and custom categories; add missing defaults non-destructively
+          const missingDefaults = CATEGORIES.filter(c => !parsed.some(p => p.id === c.id));
+          if (missingDefaults.length > 0) {
+            return [...parsed, ...missingDefaults];
+          }
+          return parsed;
         }
-        return parsed;
       } catch (e) {
         return CATEGORIES;
       }
@@ -466,8 +479,30 @@ export default function App() {
     try {
       const health = await checkDBHealth();
       if (health && health.status === 'ok') {
-        setDbState({ status: 'connected', info: health.database });
-        await seedCategoriesToDB(CATEGORIES);
+        // Load & synchronize categories with Firestore
+        const dbCategories = await fetchCategoriesFromDB();
+        let localCats: Category[] = [];
+        try {
+          const rawCats = localStorage.getItem('wartakini_categories');
+          if (rawCats) localCats = JSON.parse(rawCats);
+        } catch {}
+
+        if (dbCategories && dbCategories.length > 0) {
+          const dbCatIds = new Set(dbCategories.map(c => c.id));
+          const missingInDb = localCats.filter(c => !dbCatIds.has(c.id));
+          for (const c of missingInDb) {
+            await saveCategoryToDB(c);
+          }
+          const mergedCats = [...dbCategories, ...missingInDb];
+          setCategories(mergedCats);
+          try {
+            localStorage.setItem('wartakini_categories', JSON.stringify(mergedCats));
+          } catch {}
+        } else {
+          const toSeedCats = localCats.length > 0 ? localCats : CATEGORIES;
+          await seedCategoriesToDB(toSeedCats);
+        }
+
         const dbArticles = await fetchArticlesFromDB();
 
         // Read local storage to ensure newly uploaded or modified articles are never lost
@@ -570,6 +605,13 @@ export default function App() {
     applyPortalTheme(siteSettings.portalThemeSettings || DEFAULT_PORTAL_THEME);
   }, [siteSettings.portalThemeSettings]);
 
+  // -------------------------------------------------------------
+  // ARTICLE MODAL & DEEP LINK RESOLUTION STATE
+  // -------------------------------------------------------------
+  const [selectedArticleForModal, setSelectedArticleForModal] = useState<NewsArticle | null>(null);
+  const [articleNotFoundSlug, setArticleNotFoundSlug] = useState<string | null>(null);
+  const [isResolvingArticleUrl, setIsResolvingArticleUrl] = useState<boolean>(false);
+
   const handleUpdateReadProgress = (articleId: string, progress: number) => {
     setReadingProgressMap((prev) => {
       const current = prev[articleId] || 0;
@@ -585,7 +627,12 @@ export default function App() {
 
   const handleSelectArticle = (article: NewsArticle) => {
     setSelectedArticleForModal(article);
-    window.location.hash = `#/article/${article.slug || article.id}`;
+    setArticleNotFoundSlug(null);
+    const target = encodeURIComponent(article.slug || article.id);
+    try {
+      window.history.pushState('', article.title, `/article/${target}`);
+      setCurrentPath(`/article/${target}`);
+    } catch {}
     if (!readArticleIds.includes(article.id)) {
       setReadArticleIds((prev) => [...prev, article.id]);
     }
@@ -593,38 +640,148 @@ export default function App() {
 
   const handleCloseArticleModal = () => {
     setSelectedArticleForModal(null);
-    if (window.location.hash.includes('article')) {
-      window.history.pushState('', document.title, window.location.pathname + window.location.search);
-      setCurrentHash('');
-    }
+    setArticleNotFoundSlug(null);
+    setIsResolvingArticleUrl(false);
+
+    try {
+      const hasArticleHash = (window.location.hash || '').toLowerCase().includes('article') || (window.location.hash || '').toLowerCase().includes('berita');
+      const hasArticlePath = (window.location.pathname || '').match(/^\/(?:article|artikel|berita|warta|baca|news)/i);
+      const hasArticleQuery = (window.location.search || '').match(/[?&](?:article|berita|warta|slug)=/i);
+
+      if (hasArticleHash || hasArticlePath || hasArticleQuery) {
+        const cleanSearch = (window.location.search || '')
+          .replace(/[?&](?:article|berita|warta|slug)=[^&]*/gi, '')
+          .replace(/^\?&/, '?')
+          .replace(/^&/, '');
+        const newUrl = '/' + (cleanSearch && cleanSearch !== '?' ? cleanSearch : '');
+        window.history.pushState('', document.title, newUrl);
+        setCurrentHash('');
+        setCurrentPath('/');
+      }
+    } catch {}
   };
 
-  // Auto-open article if URL hash points to an article
-  useEffect(() => {
-    if (!currentHash) return;
-    const match = currentHash.match(/#\/?article[-/]([^?&]+)/i);
-    if (match && match[1]) {
-      const target = decodeURIComponent(match[1]).trim();
-      const found = articles.find(
-        (a) => a.id === target || a.slug === target || a.id.replace('art-', '') === target.replace('art-', '')
-      );
-      if (found) {
-        setSelectedArticleForModal(found);
-      } else {
-        fetchArticleByIdFromDB(target).then((dbArt) => {
-          if (dbArt) {
-            setArticles((prev) => {
-              if (prev.some((a) => a.id === dbArt.id)) return prev;
-              return [dbArt, ...prev];
-            });
-            setSelectedArticleForModal(dbArt);
-          }
-        }).catch((err) => {
-          console.warn('Gagal memuat artikel dari hash Firestore:', err);
-        });
+  // Helper to extract article target identifier from URL pathname, hash, or search query params
+  const getArticleTargetFromLocation = (): string | null => {
+    if (typeof window === 'undefined') return null;
+
+    // 1. Search Query Parameters (?article=... or ?berita=... or ?id=... or ?slug=...)
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const queryTarget =
+        searchParams.get('article') ||
+        searchParams.get('berita') ||
+        searchParams.get('warta') ||
+        searchParams.get('id') ||
+        searchParams.get('slug');
+      if (queryTarget && queryTarget.trim()) {
+        return decodeURIComponent(queryTarget.trim());
+      }
+    } catch {}
+
+    // 2. Hash (#/article/... or #article/...)
+    const hash = window.location.hash || '';
+    const hashMatch = hash.match(/#\/?(?:article|artikel|berita|warta|baca|news)[-/]([^?&]+)/i);
+    if (hashMatch && hashMatch[1]) {
+      try {
+        return decodeURIComponent(hashMatch[1]).trim();
+      } catch {
+        return hashMatch[1].trim();
       }
     }
-  }, [currentHash, articles]);
+
+    // 3. Pathname (/article/... or /artikel/... or /berita/... or /warta/... or /baca/... or /news/...)
+    const path = window.location.pathname || '';
+    const pathMatch = path.match(/^\/(?:article|artikel|berita|warta|baca|news)\/([^/?&#]+)/i);
+    if (pathMatch && pathMatch[1]) {
+      try {
+        return decodeURIComponent(pathMatch[1]).trim();
+      } catch {
+        return pathMatch[1].trim();
+      }
+    }
+
+    return null;
+  };
+
+  // Auto-open article if URL (path, hash, or query) points to an article
+  useEffect(() => {
+    const target = getArticleTargetFromLocation();
+    if (!target) return;
+
+    const cleanTarget = target.trim().replace(/^\/+|\/+$/g, '');
+    const cleanLower = cleanTarget.toLowerCase();
+
+    // 1. Check local articles state first
+    const found = articles.find((a) => {
+      const aId = (a.id || '').toLowerCase();
+      const aSlug = (a.slug || '').toLowerCase();
+      return (
+        aId === cleanLower ||
+        aSlug === cleanLower ||
+        aId.replace('art-', '') === cleanLower.replace('art-', '') ||
+        aSlug.replace(/\.html?$/i, '') === cleanLower.replace(/\.html?$/i, '')
+      );
+    });
+
+    if (found) {
+      setSelectedArticleForModal(found);
+      setArticleNotFoundSlug(null);
+      setIsResolvingArticleUrl(false);
+      return;
+    }
+
+    // 2. If not found in current loaded articles, load from Firestore DB & Cloud SQL
+    setIsResolvingArticleUrl(true);
+    fetchArticleByIdFromDB(cleanTarget)
+      .then((dbArt) => {
+        if (dbArt) {
+          setArticles((prev) => {
+            if (prev.some((a) => a.id === dbArt.id)) return prev;
+            return [dbArt, ...prev];
+          });
+          setSelectedArticleForModal(dbArt);
+          setArticleNotFoundSlug(null);
+          setIsResolvingArticleUrl(false);
+        } else {
+          // Fallback to /api/db/articles
+          fetch('/api/db/articles')
+            .then((res) => res.json())
+            .then((data) => {
+              if (data && data.success && Array.isArray(data.articles)) {
+                const apiFound = data.articles.find((a: NewsArticle) => {
+                  const aId = (a.id || '').toLowerCase();
+                  const aSlug = (a.slug || '').toLowerCase();
+                  return (
+                    aId === cleanLower ||
+                    aSlug === cleanLower ||
+                    aId.replace('art-', '') === cleanLower.replace('art-', '')
+                  );
+                });
+                if (apiFound) {
+                  setArticles((prev) => [apiFound, ...prev.filter((p) => p.id !== apiFound.id)]);
+                  setSelectedArticleForModal(apiFound);
+                  setArticleNotFoundSlug(null);
+                  setIsResolvingArticleUrl(false);
+                  return;
+                }
+              }
+              // If not found anywhere, show user-friendly 404 message modal
+              setIsResolvingArticleUrl(false);
+              setArticleNotFoundSlug(cleanTarget);
+            })
+            .catch(() => {
+              setIsResolvingArticleUrl(false);
+              setArticleNotFoundSlug(cleanTarget);
+            });
+        }
+      })
+      .catch((err) => {
+        console.warn('Gagal memuat artikel dari database:', err);
+        setIsResolvingArticleUrl(false);
+        setArticleNotFoundSlug(cleanTarget);
+      });
+  }, [currentHash, currentPath, articles]);
 
   // Automated background scheduler for scheduled publication
   // Changes status 'pending' to 'published' automatically when scheduledPublishAt <= now
@@ -684,7 +841,6 @@ export default function App() {
   // -------------------------------------------------------------
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedArticleForModal, setSelectedArticleForModal] = useState<NewsArticle | null>(null);
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'terbaru' | 'terpopuler' | 'pembaca'>('terbaru');
@@ -1533,6 +1689,92 @@ export default function App() {
         onUpdateReadProgress={handleUpdateReadProgress}
         initialProgress={selectedArticleForModal ? (readingProgressMap[selectedArticleForModal.id] || 0) : 0}
       />
+
+      {/* Top loader indicator when resolving article from shared URL */}
+      {isResolvingArticleUrl && (
+        <div className="fixed top-0 left-0 right-0 z-[9999] bg-yellow-400 text-sky-950 font-bold text-xs py-2 px-4 shadow-md flex items-center justify-center gap-2 animate-pulse">
+          <Sparkles className="w-4 h-4 animate-spin text-sky-900" />
+          <span>Membuka warta berita yang dibagikan...</span>
+        </div>
+      )}
+
+      {/* 404 Not Found Modal for Broken / Deleted Shared Article Links */}
+      {articleNotFoundSlug && !selectedArticleForModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-sky-100 overflow-hidden text-center p-6 sm:p-8">
+            <button
+              onClick={handleCloseArticleModal}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"
+              title="Tutup"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-16 h-16 mx-auto mb-4 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center shadow-inner">
+              <FileQuestion className="w-9 h-9" />
+            </div>
+
+            <div className="inline-block px-3 py-1 bg-red-100 text-red-700 rounded-full font-mono text-xs font-black tracking-wider uppercase mb-2">
+              Error 404 • Warta Tidak Ditemukan
+            </div>
+
+            <h3 className="text-xl sm:text-2xl font-black text-sky-950 tracking-tight mb-2">
+              Berita Tidak Dapat Ditemukan
+            </h3>
+
+            <p className="text-slate-600 text-xs sm:text-sm leading-relaxed mb-4">
+              Tautan berita yang Anda tuju mungkin telah diperbarui judulnya, dipindahkan ke rubrik lain, atau dihapus oleh Dewan Redaksi.
+            </p>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-left mb-6">
+              <div className="text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">Target Tautan:</div>
+              <div className="text-xs font-mono text-sky-900 break-all select-all font-semibold">
+                {articleNotFoundSlug}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                onClick={handleCloseArticleModal}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-sky-950 hover:bg-sky-900 text-yellow-400 font-bold text-sm transition-all shadow-md cursor-pointer"
+              >
+                Kembali ke Beranda Arun News
+              </button>
+            </div>
+
+            {articles.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-slate-100 text-left">
+                <div className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2">
+                  Rekomendasi Berita Utama Lainnya:
+                </div>
+                <div className="space-y-2">
+                  {articles.slice(0, 3).map((art) => (
+                    <div
+                      key={art.id}
+                      onClick={() => handleSelectArticle(art)}
+                      className="p-2.5 rounded-xl bg-slate-50 hover:bg-sky-50 border border-slate-100 hover:border-sky-200 transition-all cursor-pointer flex items-center gap-3"
+                    >
+                      <img
+                        src={art.imageUrl}
+                        alt={art.title}
+                        className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-sky-950 line-clamp-1 hover:text-yellow-600">
+                          {art.title}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium">
+                          {art.categoryLabel || art.category} • {art.publishedAt}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Citizen Journalism Modal */}
       {siteSettings.moduleToggles.allowCitizenJournalism && (

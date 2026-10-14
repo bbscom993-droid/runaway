@@ -47,24 +47,10 @@ interface HeaderProps {
   onNavigateToEditorial?: () => void;
 }
 
+import { renderCategoryIcon } from '../utils/categoryIconHelper';
+
 const getCategoryIcon = (iconName: string, className: string) => {
-  switch (iconName) {
-    case 'Landmark': return <Landmark className={className} />;
-    case 'Trophy': return <Trophy className={className} />;
-    case 'ShieldAlert': return <ShieldAlert className={className} />;
-    case 'TrendingUp': return <TrendingUp className={className} />;
-    case 'MapPin': return <MapPin className={className} />;
-    case 'GraduationCap': return <GraduationCap className={className} />;
-    case 'MessageSquare': return <MessageSquare className={className} />;
-    case 'Mail': return <Mail className={className} />;
-    case 'FileCheck': return <FileCheck className={className} />;
-    case 'Train': return <Train className={className} />;
-    case 'Tag': return <Tag className={className} />;
-    case 'Megaphone': return <Megaphone className={className} />;
-    case 'Flame': return <Flame className={className} />;
-    case 'Sparkles': return <Sparkles className={className} />;
-    default: return null;
-  }
+  return renderCategoryIcon(iconName, className);
 };
 
 export const Header: React.FC<HeaderProps> = ({

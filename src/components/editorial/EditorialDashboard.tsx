@@ -66,7 +66,9 @@ import {
   BellRing,
   Volume2,
   Wand2,
-  Megaphone
+  Megaphone,
+  FolderPlus,
+  Tag
 } from 'lucide-react';
 import { 
   NewsArticle, 
@@ -108,9 +110,17 @@ import {
   analyzeCommentAntiBuzzer, 
   DEFAULT_BUZZER_CONFIG, 
   AntiBuzzerConfig 
-import { saveArticleToDB, deleteArticleFromDB } from '../../services/dbClient';
+} from '../../utils/antiBuzzerEngine';
+import { 
+  saveArticleToDB, 
+  deleteArticleFromDB, 
+  saveCategoryToDB, 
+  deleteCategoryFromDB 
+} from '../../services/dbClient';
 import { SocialAutoShareDispatcherModal } from './SocialAutoShareDispatcherModal';
 import { SocialAutoShareSettingsView } from './SocialAutoShareSettingsView';
+import { CategoryEditorModal } from './CategoryEditorModal';
+import { renderCategoryIcon } from '../../utils/categoryIconHelper';
 
 interface EditorialDashboardProps {
   currentUser: EditorialUser;
@@ -319,6 +329,130 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
       prev.map((s) => (s.id === id ? { ...s, status: newStatus, updatedAt: nowStr } : s))
     );
     showToast(`Status armada berhasil diubah menjadi "${newStatus}"!`);
+  };
+
+  // Category & Rubrik Management State & Handlers
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
+  const [quickCategoryName, setQuickCategoryName] = useState('');
+
+  const handleOpenNewCategoryModal = () => {
+    setEditingCategory(null);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleOpenEditCategoryModal = (cat: Category) => {
+    setEditingCategory(cat);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleSaveCategory = async (savedCategory: Category) => {
+    const exists = categories.some((c) => c.id === savedCategory.id);
+    let nextCategories: Category[];
+    if (exists) {
+      nextCategories = categories.map((c) => (c.id === savedCategory.id ? savedCategory : c));
+    } else {
+      nextCategories = [...categories, savedCategory];
+    }
+
+    setCategories(nextCategories);
+    try {
+      localStorage.setItem('wartakini_categories', JSON.stringify(nextCategories));
+    } catch (e) {
+      console.warn('Failed saving categories to localStorage', e);
+    }
+
+    showToast(`Rubrik "${savedCategory.name}" berhasil ${exists ? 'diperbarui' : 'ditambahkan'}!`);
+    setIsCategoryModalOpen(false);
+
+    try {
+      await saveCategoryToDB(savedCategory);
+    } catch (err) {
+      console.warn('Error syncing category to DB:', err);
+    }
+  };
+
+  const handleQuickAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanName = quickCategoryName.trim();
+    if (!cleanName) {
+      showToast('Masukkan nama kategori berita terlebih dahulu.');
+      return;
+    }
+    const cleanSlug = cleanName
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+
+    if (!cleanSlug) {
+      showToast('Nama kategori tidak valid.');
+      return;
+    }
+
+    if (categories.some((c) => c.id.toLowerCase() === cleanSlug)) {
+      showToast(`Kategori dengan slug "${cleanSlug}" sudah ada.`);
+      return;
+    }
+
+    const newCat: Category = {
+      id: cleanSlug,
+      name: cleanName,
+      slug: cleanSlug,
+      iconName: 'Tag',
+      description: `Kanal berita dan informasi aktual seputar topik ${cleanName}.`,
+      color: '#0284c7',
+    };
+
+    const nextCategories = [...categories, newCat];
+    setCategories(nextCategories);
+    try {
+      localStorage.setItem('wartakini_categories', JSON.stringify(nextCategories));
+    } catch (e) {
+      console.warn('Failed saving categories to localStorage', e);
+    }
+    setQuickCategoryName('');
+    showToast(`✅ Rubrik "${newCat.name}" berhasil ditambahkan ke pengaturan admin & portal!`);
+
+    try {
+      await saveCategoryToDB(newCat);
+    } catch (err) {
+      console.warn('Error syncing category to DB:', err);
+    }
+  };
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    const targetCat = categories.find((c) => c.id === categoryId);
+    if (!targetCat) return;
+
+    if (targetCat.id === 'all') {
+      showToast('Kategori utama "Semua Berita" adalah bawaan sistem dan tidak dapat dihapus.');
+      return;
+    }
+
+    const articleCount = articles.filter((a) => a.category === categoryId).length;
+    let confirmMsg = `Hapus rubrik/kategori "${targetCat.name}"?`;
+    if (articleCount > 0) {
+      confirmMsg += ` PERINGATAN: Terdapat ${articleCount} berita yang bernaung di bawah kategori ini!`;
+    }
+
+    if (!window.confirm(confirmMsg)) return;
+
+    const nextCategories = categories.filter((c) => c.id !== categoryId);
+    setCategories(nextCategories);
+    try {
+      localStorage.setItem('wartakini_categories', JSON.stringify(nextCategories));
+    } catch (e) {
+      console.warn('Failed removing category from localStorage', e);
+    }
+
+    showToast(`Kategori "${targetCat.name}" berhasil dihapus.`);
+
+    try {
+      await deleteCategoryFromDB(categoryId);
+    } catch (err) {
+      console.warn('Error deleting category from DB:', err);
+    }
   };
 
   // Anti-Buzzer Moderation & Defense Engine State
@@ -2613,36 +2747,207 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
           {/* TAB 5: RUBRIK & KATEGORI */}
           {/* ========================================================= */}
           {activeTab === 'categories' && (
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-sky-200 shadow-xs space-y-4 animate-in fade-in duration-200">
-              <div className="flex items-center justify-between pb-3 border-b border-sky-100">
+            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-sky-200 shadow-xs space-y-6 animate-in fade-in duration-200">
+              {/* Header with Title and Tambah Kategori Button */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sky-100">
                 <div>
-                  <h2 className="text-base sm:text-lg font-black uppercase tracking-tight text-sky-950">
-                    Rubrik & Kanal Berita
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-yellow-400 text-sky-950 font-black text-[10px] font-mono px-2 py-0.5 rounded uppercase shadow-2xs">
+                      Struktur Konten Portal
+                    </span>
+                    <span className="text-xs text-sky-700 font-mono font-bold">
+                      {categories.length} Rubrik Terdaftar
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-xl font-black uppercase tracking-tight text-sky-950 font-mono">
+                    Rubrik & Kanal Berita Portal
                   </h2>
-                  <p className="text-xs text-slate-600 font-medium">
-                    Atur nama rubrik, deskripsi kanal, dan urutan navigasi portal
+                  <p className="text-xs text-slate-600 font-medium mt-0.5">
+                    Atur nama rubrik liputan, ikon visual, warna kanal, deskripsi, serta kelola alokasi naskah warta.
                   </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleOpenNewCategoryModal}
+                    className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-transform active:scale-95 shadow-md cursor-pointer"
+                  >
+                    <FolderPlus className="w-4 h-4 text-sky-950" />
+                    <span>Tambah Kategori Baru</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {categories.map((cat, idx) => (
-                  <div
-                    key={cat.id}
-                    className="p-3.5 rounded-xl border border-sky-200 bg-sky-50/50 flex items-start justify-between gap-3"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-mono font-bold text-yellow-600">#{idx}</span>
-                        <h4 className="text-xs font-black text-sky-950 uppercase">{cat.name}</h4>
-                        <span className="text-[9px] bg-sky-200 text-sky-900 px-1.5 py-0.2 rounded font-mono">
-                          /{cat.slug}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-slate-600 mt-1">{cat.description}</p>
-                    </div>
+              {/* Quick Add Bar & Search Bar */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 p-4 rounded-2xl bg-sky-50/70 border border-sky-200">
+                {/* Quick Add Form */}
+                <form onSubmit={handleQuickAddCategory} className="lg:col-span-7 flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <Tag className="w-4 h-4 text-sky-600 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={quickCategoryName}
+                      onChange={(e) => setQuickCategoryName(e.target.value)}
+                      placeholder="Tambah rubrik instan (contoh: Wisata, Olahraga, Kuliner)..."
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-white rounded-xl border border-sky-200 text-sky-950 font-bold focus:ring-2 focus:ring-yellow-400 focus:outline-none shadow-2xs"
+                    />
                   </div>
-                ))}
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-sky-950 hover:bg-sky-900 text-yellow-300 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-xs whitespace-nowrap cursor-pointer active:scale-95"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Tambah Cepat</span>
+                  </button>
+                </form>
+
+                {/* Search Filter */}
+                <div className="lg:col-span-5 relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                  <input
+                    type="text"
+                    value={categorySearchQuery}
+                    onChange={(e) => setCategorySearchQuery(e.target.value)}
+                    placeholder="Cari nama atau slug rubrik..."
+                    className="w-full pl-9 pr-3 py-2 text-xs bg-white rounded-xl border border-sky-200 text-sky-950 font-medium focus:ring-2 focus:ring-sky-400 focus:outline-none shadow-2xs"
+                  />
+                  {categorySearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setCategorySearchQuery('')}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Metrics Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 rounded-xl bg-white border border-sky-200 flex items-center justify-between shadow-2xs">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase block">Total Kanal Rubrik</span>
+                    <span className="text-xl font-black text-sky-950 font-mono">{categories.length} Rubrik</span>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-900 flex items-center justify-center font-bold">
+                    <FolderTree className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white border border-sky-200 flex items-center justify-between shadow-2xs">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase block">Total Artikel Berita</span>
+                    <span className="text-xl font-black text-emerald-700 font-mono">{articles.length} Naskah</span>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                    <Newspaper className="w-5 h-5" />
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-white border border-sky-200 flex items-center justify-between shadow-2xs">
+                  <div>
+                    <span className="text-[10px] font-mono font-bold text-slate-500 uppercase block">Sinkronisasi Basis Data</span>
+                    <span className="text-xs font-black text-sky-950 font-mono">Aktif (Firestore &amp; Cache)</span>
+                  </div>
+                  <div className="w-9 h-9 rounded-xl bg-yellow-100 text-yellow-900 flex items-center justify-center font-bold">
+                    <CheckCircle className="w-5 h-5 text-emerald-600" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Categories Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {categories
+                  .filter((cat) => {
+                    if (!categorySearchQuery) return true;
+                    const q = categorySearchQuery.toLowerCase();
+                    return (
+                      cat.name.toLowerCase().includes(q) ||
+                      (cat.slug && cat.slug.toLowerCase().includes(q)) ||
+                      (cat.description && cat.description.toLowerCase().includes(q))
+                    );
+                  })
+                  .map((cat, idx) => {
+                    const catArticlesCount = articles.filter(
+                      (a) => a.category === cat.id || a.category === cat.slug
+                    ).length;
+
+                    return (
+                      <div
+                        key={cat.id}
+                        className="p-4 rounded-2xl border border-sky-200 bg-white hover:border-yellow-400 hover:shadow-md transition-all flex flex-col justify-between gap-3 group relative overflow-hidden"
+                      >
+                        {/* Top Color Line */}
+                        <div
+                          className="absolute top-0 left-0 right-0 h-1"
+                          style={{ backgroundColor: cat.color || '#0284c7' }}
+                        />
+
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className="w-8 h-8 rounded-xl flex items-center justify-center font-bold shadow-2xs flex-shrink-0"
+                                style={{
+                                  backgroundColor: (cat.color || '#0284c7') + '20',
+                                  color: cat.color || '#0284c7',
+                                }}
+                              >
+                                {renderCategoryIcon(cat.iconName || 'Tag', 'w-4 h-4')}
+                              </span>
+                              <div>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <h4 className="text-xs font-black text-sky-950 uppercase tracking-tight">
+                                    {cat.name}
+                                  </h4>
+                                  <span className="text-[9px] bg-sky-100 text-sky-800 px-1.5 py-0.2 rounded font-mono font-bold">
+                                    /{cat.slug || cat.id}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] font-mono text-slate-500 font-semibold">
+                                  Index #{idx + 1}
+                                </span>
+                              </div>
+                            </div>
+
+                            <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 flex-shrink-0">
+                              {catArticlesCount} Berita
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-600 line-clamp-2 leading-relaxed">
+                            {cat.description || `Liputan berita mendalam kanal ${cat.name}.`}
+                          </p>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditCategoryModal(cat)}
+                            className="px-2.5 py-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-900 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Edit3 className="w-3 h-3 text-sky-700" />
+                            <span>Edit Rubrik</span>
+                          </button>
+
+                          {cat.id !== 'all' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCategory(cat.id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                              title="Hapus Kategori Berita"
+                            >
+                              <Trash2 className="w-3 h-3 text-rose-600" />
+                              <span>Hapus</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -3925,6 +4230,183 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
                 <p className="text-xs text-slate-600 font-medium">
                   Atur nama portal, kontak redaksi, penempatan iklan komersial, skema warna template, darurat banner BMKG, serta hidup/matikan modul
                 </p>
+              </div>
+
+              {/* ========================================================= */}
+              {/* PANEL PENGATURAN & PENAMBAHAN KATEGORI BERITA REDAKSI     */}
+              {/* ========================================================= */}
+              <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-sky-950 via-slate-900 to-sky-950 text-white border-2 border-yellow-400 shadow-xl space-y-5">
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-sky-800/80 pb-4">
+                  <div className="flex items-start sm:items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-yellow-400 text-sky-950 flex items-center justify-center font-black shadow-md flex-shrink-0">
+                      <FolderPlus className="w-6 h-6 text-sky-950" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm sm:text-base font-black uppercase font-mono tracking-tight text-white">
+                          Manajemen &amp; Penambahan Kategori Berita
+                        </h3>
+                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-yellow-400 text-sky-950">
+                          {categories.length} Rubrik Aktif
+                        </span>
+                      </div>
+                      <p className="text-xs text-sky-200 mt-0.5 font-medium">
+                        Tambah rubrik liputan baru (misal: Politik, Teknologi, Otomotif, Gaya Hidup, dsb.), tentukan ikon visual, warna kanal, dan kelola alokasi berita.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleOpenNewCategoryModal}
+                      className="px-4 py-2.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-sky-950 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
+                    >
+                      <FolderPlus className="w-4 h-4 text-sky-950" />
+                      <span>+ Tambah Kategori Baru</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('categories')}
+                      className="px-3 py-2.5 bg-sky-900 hover:bg-sky-800 text-yellow-300 text-xs font-bold rounded-xl border border-sky-700 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Lihat Halaman Penuh Rubrik"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Kanal Penuh</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Add Inline Bar */}
+                <div className="bg-sky-900/60 p-3.5 sm:p-4 rounded-2xl border border-sky-700/80">
+                  <span className="text-[11px] font-mono font-bold text-yellow-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+                    <span>Penambahan Cepat (Quick Add):</span>
+                  </span>
+                  <form onSubmit={handleQuickAddCategory} className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <Tag className="w-4 h-4 text-sky-300 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={quickCategoryName}
+                        onChange={(e) => setQuickCategoryName(e.target.value)}
+                        placeholder="Ketik nama kategori berita baru (contoh: Wisata, Kuliner, Properti, Kesehatan)..."
+                        className="w-full pl-9 pr-3 py-2.5 text-xs bg-sky-950 rounded-xl border border-sky-700 text-white placeholder-sky-400 font-bold focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-sky-950 text-xs font-black rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-md whitespace-nowrap cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 text-sky-950" />
+                      <span>Tambah Sekarang</span>
+                    </button>
+                  </form>
+                  {quickCategoryName.trim() && (
+                    <div className="mt-2 text-[10px] font-mono text-sky-300 flex items-center gap-1">
+                      <span>Slug otomatis:</span>
+                      <strong className="text-yellow-300">
+                        /{quickCategoryName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}
+                      </strong>
+                    </div>
+                  )}
+                </div>
+
+                {/* Categories Live Grid */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-mono font-bold text-sky-300 uppercase tracking-wider">
+                      Daftar Rubrik Terpasang Saat Ini ({categories.length}):
+                    </span>
+                    <span className="text-[11px] text-sky-400 font-medium">
+                      Otomatis sinkron ke Portal Publik &amp; Meja Editor
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {categories.map((cat, idx) => {
+                      const count = articles.filter(
+                        (a) => a.category === cat.id || a.category === cat.slug
+                      ).length;
+
+                      return (
+                        <div
+                          key={cat.id}
+                          className="p-3.5 rounded-2xl bg-sky-900/40 border border-sky-800 hover:border-yellow-400/80 transition-all flex flex-col justify-between gap-2.5 relative overflow-hidden group"
+                        >
+                          <div
+                            className="absolute top-0 left-0 right-0 h-1"
+                            style={{ backgroundColor: cat.color || '#0284c7' }}
+                          />
+
+                          <div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-center gap-2.5">
+                                <span
+                                  className="w-8 h-8 rounded-xl flex items-center justify-center font-bold shadow-xs flex-shrink-0"
+                                  style={{
+                                    backgroundColor: (cat.color || '#0284c7') + '30',
+                                    color: cat.color || '#38bdf8',
+                                  }}
+                                >
+                                  {renderCategoryIcon(cat.iconName || 'Tag', 'w-4 h-4')}
+                                </span>
+                                <div>
+                                  <h4 className="text-xs font-black text-white uppercase tracking-tight">
+                                    {cat.name}
+                                  </h4>
+                                  <span className="text-[9px] font-mono text-sky-300">
+                                    /{cat.slug || cat.id}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-sky-950 text-yellow-300 border border-sky-800">
+                                {count} Berita
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-sky-200 mt-2 line-clamp-2 leading-relaxed">
+                              {cat.description || `Liputan berita ${cat.name}.`}
+                            </p>
+                          </div>
+
+                          <div className="pt-2 border-t border-sky-800/80 flex items-center justify-between text-[11px] font-mono">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditCategoryModal(cat)}
+                              className="px-2 py-1 bg-sky-800 hover:bg-sky-700 text-yellow-300 font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+
+                            {cat.id !== 'all' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(cat.id)}
+                                className="px-2 py-1 bg-rose-950/80 hover:bg-rose-900 text-rose-300 font-bold rounded-lg flex items-center gap-1 transition-colors cursor-pointer border border-rose-800/60"
+                                title="Hapus Kategori Berita"
+                              >
+                                <Trash2 className="w-3 h-3 text-rose-400" />
+                                <span>Hapus</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Helpful Integration Note */}
+                <div className="p-3 bg-sky-900/30 rounded-xl border border-sky-800 text-[11px] text-sky-300 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  <span>
+                    Kategori berita yang ditambahkan di sini langsung muncul di <strong>Header / Navigasi Portal</strong>, <strong>Form Editor Berita Redaksi</strong>, <strong>Kirim Warta Warga</strong>, dan <strong>Rekomendasi Berita Terkait</strong>.
+                  </span>
+                </div>
               </div>
 
               {/* Panel Pengaturan Warna Template Shortcut */}
@@ -5595,6 +6077,15 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Category Editor Modal for Adding / Editing News Categories */}
+      <CategoryEditorModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+        onSaveCategory={handleSaveCategory}
+        editingCategory={editingCategory}
+        existingCategories={categories}
+      />
 
     </div>
   );
