@@ -1686,8 +1686,7 @@ export default function App() {
         onSelectRelatedArticle={handleSelectArticle}
         allArticles={articles}
         readArticleIds={readArticleIds}
-        onUpdateReadProgress={handleUpdateReadProgress}
-        initialProgress={selectedArticleForModal ? (readingProgressMap[selectedArticleForModal.id] || 0) : 0}
+        onOpenSawerKopi={() => setIsSawerKopiOpen(true)}
       />
 
       {/* Top loader indicator when resolving article from shared URL */}

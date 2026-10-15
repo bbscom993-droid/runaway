@@ -89,6 +89,7 @@ interface ArticleModalProps {
   readArticleIds?: string[];
   onUpdateReadProgress?: (articleId: string, progress: number) => void;
   initialProgress?: number;
+  onOpenSawerKopi?: () => void;
 }
 
 export const ArticleModal: React.FC<ArticleModalProps> = ({
@@ -103,6 +104,7 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   readArticleIds = [],
   onUpdateReadProgress,
   initialProgress = 0,
+  onOpenSawerKopi,
 }) => {
   const readingTimeInfo = getArticleReadingTime(article || {});
   const isEditorial = Boolean(
@@ -223,45 +225,8 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   const [lineSpacing, setLineSpacing] = useState<'normal' | 'relaxed' | 'loose'>('relaxed');
   const [copiedDraft, setCopiedDraft] = useState(false);
 
-  // Independent Reading Theme setting: 'light' | 'warm'
-  // 'warm' is Mode Baca Nyaman (Sepia / Warm) for soothing blue-light filtered reading
-  const [readingTheme, setReadingTheme] = useState<'light' | 'warm'>(() => {
-    try {
-      const savedTheme = localStorage.getItem('wartakini_reader_reading_theme');
-      if (savedTheme === 'warm') {
-        return 'warm';
-      }
-      return 'light';
-    } catch {
-      return 'light';
-    }
-  });
-
   const isNightMode = false;
-  const isWarmMode = readingTheme === 'warm';
-
-  const toggleWarmMode = () => {
-    setReadingTheme((prev) => {
-      const next = prev === 'warm' ? 'light' : 'warm';
-      try {
-        localStorage.setItem('wartakini_reader_reading_theme', next);
-        localStorage.removeItem('wartakini_reader_night_mode');
-      } catch (e) {
-        console.error('Failed to save warm mode setting:', e);
-      }
-      return next;
-    });
-  };
-
-  const setSpecificTheme = (theme: 'light' | 'warm') => {
-    setReadingTheme(theme);
-    try {
-      localStorage.setItem('wartakini_reader_reading_theme', theme);
-      localStorage.removeItem('wartakini_reader_night_mode');
-    } catch (e) {
-      console.error('Failed to save reading theme:', e);
-    }
-  };
+  const isWarmMode = false;
 
   // Auto-scroll state & speed control
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
@@ -333,75 +298,17 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   });
   const [lastSharedPlatform, setLastSharedPlatform] = useState<string | null>(null);
 
-  // Reading Completion Confirmation Modal (< 100% progress)
-  const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
-
   const handleAttemptClose = () => {
-    if (scrollProgress < 100) {
-      setIsCloseConfirmOpen(true);
-    } else {
-      onClose();
-    }
+    onClose();
   };
 
-  // Anti-Buzzer Modals & Feedback
-  const [isAntiBuzzerModalOpen, setIsAntiBuzzerModalOpen] = useState(false);
+  // Anti-Buzzer Modals & Feedback States
+  const [isAntiBuzzerModalOpen, setIsAntiBuzzerModalOpen] = useState<boolean>(false);
+  const [commentFeedback, setCommentFeedback] = useState<{ type: string; title: string; message: string } | null>(null);
   const [reportingComment, setReportingComment] = useState<NewsComment | null>(null);
   const [reportReason, setReportReason] = useState<string>('Akun Buzzer Bayaran / Framing Terkoordinasi');
-  const [reportNote, setReportNote] = useState('');
-  const [reportSuccess, setReportSuccess] = useState(false);
-  const [commentFeedback, setCommentFeedback] = useState<{
-    type: 'clean' | 'suspect' | 'held';
-    title: string;
-    message: string;
-  } | null>(null);
-
-  // Quick Summary State
-  const [summary, setSummary] = useState<string[]>([]);
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
-
-  // Quick Summary effect using Assistan Arun server route
-  useEffect(() => {
-    if (!article) return;
-
-    setSummary([]);
-    setSummaryError(null);
-    setIsSummarizing(true);
-
-    const fetchSummary = async () => {
-      try {
-        const response = await fetch('/api/summarize', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            title: article.title,
-            content: article.content,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to generate summary');
-        }
-
-        const data = await response.json();
-        if (data && Array.isArray(data.summary)) {
-          setSummary(data.summary);
-        } else {
-          throw new Error('Invalid summary format');
-        }
-      } catch (err: any) {
-        console.error('Error fetching summary:', err);
-        setSummaryError('Gagal memuat ringkasan cepat berita.');
-      } finally {
-        setIsSummarizing(false);
-      }
-    };
-
-    fetchSummary();
-  }, [article]);
+  const [reportNote, setReportNote] = useState<string>('');
+  const [reportSuccess, setReportSuccess] = useState<boolean>(false);
 
   useEffect(() => {
     if (article) {
@@ -1470,27 +1377,6 @@ ${article.tags.map(t => `#${t}`).join(', ')}
 
   return (
     <>
-      {/* 1. ULTRA-THIN LINEAR READING PROGRESS BAR AT TOP OF SCREEN (UX Enhancement) */}
-      <div 
-        id="screen-top-reading-progress"
-        className="fixed top-0 left-0 right-0 z-[100] h-1 sm:h-1.5 bg-sky-950/60 backdrop-blur-xs pointer-events-none"
-        title={`Progres Membaca: ${scrollProgress}%`}
-        aria-valuenow={scrollProgress}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        role="progressbar"
-      >
-        <div 
-          className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-300 transition-[width] duration-150 ease-out shadow-[0_0_12px_rgba(250,204,21,0.95)] relative"
-          style={{ width: `${scrollProgress}%` }}
-        >
-          {/* Glowing leading edge tip */}
-          {scrollProgress > 0 && (
-            <span className="absolute right-0 top-0 bottom-0 w-3 bg-white/95 rounded-full shadow-[0_0_8px_#ffffff] animate-pulse" />
-          )}
-        </div>
-      </div>
-
       <div
         id="article-reader-modal"
         className="fixed inset-0 z-50 bg-sky-950/85 backdrop-blur-md flex items-center justify-center p-0 sm:p-3 md:p-6 overflow-y-auto scroll-smooth"
@@ -1506,26 +1392,6 @@ ${article.tags.map(t => `#${t}`).join(', ')}
         }`}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Sleek Thin Linear Reading Progress Bar at top edge of ArticleModal */}
-        <div 
-          id="article-reading-progress-bar"
-          className="w-full h-1 sm:h-1.5 bg-sky-950/90 relative z-30 overflow-hidden flex-shrink-0 border-b border-yellow-400/30"
-          title={`Progres Membaca: ${scrollProgress}%`}
-          aria-valuenow={scrollProgress}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          role="progressbar"
-        >
-          <div 
-            className="h-full bg-gradient-to-r from-amber-500 via-yellow-400 to-yellow-300 transition-all duration-100 ease-out shadow-[0_0_10px_rgba(250,204,21,0.9)] relative"
-            style={{ width: `${scrollProgress}%` }}
-          >
-            {/* Glowing leading edge tip */}
-            {scrollProgress > 0 && (
-              <div className="absolute right-0 top-0 bottom-0 w-2 bg-white rounded-full shadow-[0_0_6px_#ffffff] animate-pulse" />
-            )}
-          </div>
-        </div>
 
         {/* Modal Header: Distraction-Free Focus Mode or Full Standard Reader */}
         {isFocusMode ? (
@@ -1578,22 +1444,6 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                 </button>
               </div>
 
-              {/* Mode Baca Nyaman (Sepia/Warm) Button in Focus Mode */}
-              <button
-                type="button"
-                onClick={toggleWarmMode}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-                  isWarmMode 
-                    ? 'bg-amber-300 text-amber-950 border-amber-400 font-black shadow-xs ring-1 ring-amber-500' 
-                    : 'bg-white hover:bg-amber-50 text-amber-900 border-amber-200'
-                }`}
-                title={isWarmMode ? 'Matikan Mode Baca Nyaman (Kembali ke Normal)' : 'Aktifkan Mode Baca Nyaman (Sepia/Warm) — Lembut di mata untuk membaca lama'}
-                aria-label="Mode Baca Nyaman"
-              >
-                <Coffee className="w-3.5 h-3.5 text-amber-700" />
-                <span className="hidden sm:inline">Nyaman</span>
-              </button>
-
               {/* Exit Focus Mode Button */}
               <button
                 id="exit-focus-mode-btn"
@@ -1644,38 +1494,9 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                 <span className="text-xs font-mono hidden md:inline text-sky-200">
                   {article.publishedAt}
                 </span>
-                <div className="hidden sm:flex items-center gap-1.5 text-[10px] sm:text-xs font-mono font-bold px-2 sm:px-2.5 py-0.5 rounded-md shadow-2xs bg-sky-900/90 text-yellow-300 border-sky-700/80">
-                  <BookOpen className="w-3 h-3 text-yellow-400" />
-                  <span>{scrollProgress === 100 ? 'Selesai 🎉' : `${scrollProgress}%`}</span>
-                </div>
               </div>
 
               <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
-                {/* Quick Header 'Mode Baca Nyaman' (Sepia/Warm) Button */}
-                <button
-                  id="toggle-warm-mode-header-btn"
-                  type="button"
-                  onClick={toggleWarmMode}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
-                    isWarmMode
-                      ? 'bg-amber-300 text-amber-950 border-amber-400 font-black shadow-amber-300/30 ring-1 ring-amber-500'
-                      : isNightMode
-                      ? 'bg-slate-800 hover:bg-slate-700 text-amber-200 hover:text-amber-100 border-slate-700'
-                      : 'bg-sky-900 hover:bg-sky-800 text-amber-200 hover:text-amber-100 border-sky-700'
-                  }`}
-                  title={
-                    isWarmMode
-                      ? 'Matikan Mode Baca Nyaman (Sepia/Warm) — Kembali ke Tampilan Normal'
-                      : 'Aktifkan Mode Baca Nyaman (Sepia/Warm) — Redakan ketegangan mata & filter cahaya biru untuk membaca santai'
-                  }
-                  aria-label="Mode Baca Nyaman"
-                >
-                  <Coffee className="w-3.5 h-3.5 text-amber-300" />
-                  <span className="hidden sm:inline">Mode Nyaman</span>
-                  <span className="sm:hidden text-[11px]">Nyaman</span>
-                  {isWarmMode && <span className="w-1.5 h-1.5 rounded-full bg-amber-700 animate-pulse" />}
-                </button>
-
                 {/* Quick Header Focus Mode Toggle Button (Tablet & Web) */}
                 <button
                   id="toggle-focus-mode-header-btn"
@@ -1910,45 +1731,7 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                   </button>
                 </div>
 
-            {/* Reading Theme Selector: Terang, Mode Nyaman (Sepia/Warm), and Malam */}
-            <div className={`flex items-center gap-1 p-1 rounded-xl border transition-colors ${
-              isNightMode
-                ? 'bg-slate-800 border-slate-700 text-slate-200'
-                : isWarmMode
-                ? 'bg-[#f4ebd6] border-[#dfcfad] text-[#4a3a27]'
-                : 'bg-white border-sky-200 text-sky-900'
-            }`}>
-              <span className="text-[11px] font-bold px-1 font-mono flex items-center gap-1">
-                <Coffee className="w-3.5 h-3.5 text-amber-600" />
-                <span className="hidden sm:inline">Tema:</span>
-              </span>
-              <button
-                type="button"
-                onClick={() => setSpecificTheme('light')}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  readingTheme === 'light'
-                    ? 'bg-yellow-400 text-slate-950 font-black shadow-xs'
-                    : isNightMode ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800'
-                }`}
-                title="Mode Terang (Normal)"
-              >
-                ☀️ Terang
-              </button>
-              <button
-                id="btn-reading-mode-warm"
-                type="button"
-                onClick={toggleWarmMode}
-                className={`px-2.5 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                  isWarmMode
-                    ? 'bg-amber-300 text-amber-950 font-black shadow-xs ring-1 ring-amber-500'
-                    : 'bg-amber-100/70 hover:bg-amber-100 text-amber-900'
-                }`}
-                title="Mode Baca Nyaman (Sepia/Warm) — Kurangi ketegangan mata dengan latar hangat & filter cahaya biru"
-              >
-                <Coffee className="w-3 h-3 text-amber-700" />
-                <span>☕ Nyaman (Warm)</span>
-              </button>
-            </div>
+
 
             <div className={`flex items-center gap-1 p-1 rounded-xl border transition-colors ${
               isNightMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-sky-200 text-sky-900'
@@ -2115,11 +1898,6 @@ ${article.tags.map(t => `#${t}`).join(', ')}
             </span>
           </div>
           <div className="flex items-center gap-2">
-            {isWarmMode && (
-              <span className="flex items-center gap-1 text-[10px] font-mono font-black text-amber-950 bg-amber-300/80 px-2 py-0.5 rounded-lg border border-amber-400 shadow-2xs">
-                <Coffee className="w-3 h-3 text-amber-800" /> Mode Nyaman (Sepia)
-              </span>
-            )}
           </div>
         </div>
       </>
@@ -2627,77 +2405,7 @@ ${article.tags.map(t => `#${t}`).join(', ')}
 
           {!isFocusMode && (
             <>
-              {/* Ringkasan Cepat Assistan Arun */}
-              <div className={`rounded-2xl p-5 border mb-6 shadow-2xs relative overflow-hidden transition-colors ${
-                isNightMode
-                  ? 'bg-slate-900/90 border-amber-500/40 text-slate-100'
-                  : isWarmMode
-                  ? 'bg-[#f4ebd6] border-[#dfcfad] text-[#3e2e1c]'
-                  : 'bg-amber-50/45 border-amber-200 text-slate-800'
-              }`}>
-                <div className="absolute top-0 right-0 p-3">
-                  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider font-mono ${
-                    isNightMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : isWarmMode ? 'bg-[#ebd9b8] text-amber-950 border border-[#dfcfad]' : 'bg-amber-100 text-amber-700'
-                  }`}>
-                    Assistan Arun
-                  </span>
-                </div>
-                
-                <div className={`flex items-center gap-2 text-xs sm:text-sm font-black uppercase tracking-wider mb-3.5 font-sans ${
-                  isNightMode ? 'text-amber-300' : isWarmMode ? 'text-amber-950' : 'text-amber-950'
-                }`}>
-                  <span className="text-lg">⚡</span>
-                  Ringkasan Cepat Berita
-                </div>
 
-                {isSummarizing ? (
-                  <div className="space-y-3 py-1 animate-pulse">
-                    <div className="h-4 bg-amber-200/50 rounded-md w-11/12"></div>
-                    <div className="h-4 bg-amber-200/50 rounded-md w-full"></div>
-                    <div className="h-4 bg-amber-200/50 rounded-md w-10/12"></div>
-                    <p className="text-[11px] text-amber-500 italic font-medium mt-2">
-                      Menganalisis teks berita dengan kecerdasan buatan...
-                    </p>
-                  </div>
-                ) : summaryError ? (
-                  <div className="text-xs text-rose-800 bg-rose-50 p-3 rounded-xl border border-rose-200 flex items-center justify-between">
-                    <span>{summaryError}</span>
-                    <button 
-                      onClick={() => {
-                        setIsSummarizing(true);
-                        setSummaryError(null);
-                        fetch('/api/summarize', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ title: article.title, content: article.content })
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                          if (data && Array.isArray(data.summary)) {
-                            setSummary(data.summary);
-                          } else {
-                            throw new Error();
-                          }
-                        })
-                        .catch(() => setSummaryError('Gagal memuat ringkasan cepat berita.'))
-                        .finally(() => setIsSummarizing(false));
-                      }}
-                      className="text-xs font-bold text-rose-900 underline hover:no-underline px-2 py-1 rounded"
-                    >
-                      Coba Lagi
-                    </button>
-                  </div>
-                ) : (
-                  <ul className="space-y-2.5 text-xs sm:text-sm leading-relaxed">
-                    {summary.map((point, index) => (
-                      <li key={index} className="flex items-start gap-2.5">
-                        <span className="text-amber-500 font-bold mt-0.5 text-xs select-none">✦</span>
-                        <span className={`font-medium ${isNightMode ? 'text-amber-100' : isWarmMode ? 'text-[#3e2e1c]' : 'text-amber-950/90'}`}>{point}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
 
               {/* Key Takeaways Box (Poin Penting Berita) */}
               {article.keyTakeaways && article.keyTakeaways.length > 0 && (
@@ -2911,15 +2619,6 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                         <p className="text-xs text-sky-200 mt-0.5 font-medium">
                           Dihitung berdasarkan kecepatan baca standar Indonesia (200 kata/menit).
                         </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 z-10 border-t sm:border-t-0 sm:border-l border-sky-800/80 pt-3 sm:pt-0 sm:pl-4">
-                      <div className="text-left sm:text-right">
-                        <div className="text-[10px] font-mono text-sky-300 font-bold uppercase tracking-wider">Status Progres</div>
-                        <div className="text-xs font-mono font-black text-yellow-400 mt-0.5">
-                          {scrollProgress === 100 ? '100% Selesai 🎉' : `${scrollProgress}% Terbaca`}
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -3733,11 +3432,11 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                 </div>
               )}
 
-              {/* Article Bottom Action Bar with Reading Completion Check */}
+              {/* Article Bottom Action Bar */}
               <div className="mt-8 pt-6 border-t-2 border-sky-100 flex flex-col sm:flex-row items-center justify-between gap-3 bg-sky-50/90 p-4 rounded-2xl border border-sky-200">
-                <div className="flex items-center gap-2 text-xs font-mono text-sky-950 font-bold">
-                  <BookOpen className="w-4 h-4 text-yellow-500 flex-shrink-0" />
-                  <span>Progres Membaca: <strong className="text-amber-600 font-black">{scrollProgress}%</strong></span>
+                <div className="flex items-center gap-2 text-xs font-semibold text-sky-950">
+                  <span className="w-2 h-2 rounded-full bg-yellow-500"></span>
+                  <span>Warta Selesai Dibaca</span>
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
@@ -3766,7 +3465,7 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                     className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl bg-sky-950 hover:bg-sky-900 active:scale-95 text-yellow-400 font-black text-xs border border-yellow-400/80 shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
                   >
                     <CheckCircle2 className="w-4 h-4 text-yellow-400" />
-                    <span>{scrollProgress === 100 ? 'Selesai & Tutup 🎉' : 'Tutup'}</span>
+                    <span>Tutup Berita</span>
                   </button>
                 </div>
               </div>
@@ -3801,18 +3500,7 @@ ${article.tags.map(t => `#${t}`).join(', ')}
             ? 'bg-[#3b2b1b]/95 text-[#fbf4e6] border-[#553e28]' 
             : 'bg-sky-950/95 text-white border-yellow-400/70'
         }`}>
-          {/* Mode Nyaman (Sepia) */}
-          <button
-            type="button"
-            onClick={toggleWarmMode}
-            className={`flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-bold transition-all active:scale-90 cursor-pointer ${
-              isWarmMode ? 'text-amber-400 font-black' : 'text-sky-300 hover:text-white'
-            }`}
-            title="Mode Baca Nyaman (Sepia/Warm)"
-          >
-            <Coffee className="w-4 h-4 mb-0.5 text-amber-400" />
-            <span>{isWarmMode ? 'Nyaman ON' : 'Nyaman'}</span>
-          </button>
+
 
           {/* Text-to-Speech Audio */}
           <button
@@ -4079,68 +3767,47 @@ ${article.tags.map(t => `#${t}`).join(', ')}
         onTrackShare={handleTrackShare}
       />
 
-      {/* Confirmation Dialog Modal when user attempts to close before 100% reading progress */}
-      {isCloseConfirmOpen && (
-        <div 
-          className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-sky-950/85 backdrop-blur-md animate-in fade-in duration-200" 
+      {/* Tombol Sawer Kopi Mengambang (Floating Action Widget saat Membaca Berita) */}
+      {onOpenSawerKopi && (
+        <aside
+          aria-label="Dukungan Sawer Kopi Redaksi"
+          className="fixed bottom-20 sm:bottom-8 right-4 sm:right-8 z-[60] animate-in fade-in slide-in-from-bottom-4 duration-300 pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border-2 border-yellow-400 overflow-hidden relative text-center animate-in zoom-in-95 duration-200">
-            
-            {/* Warning Header Icon */}
-            <div className="w-16 h-16 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4 border-2 border-amber-300 shadow-inner">
-              <HelpCircle className="w-8 h-8 text-amber-600 animate-bounce" />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenSawerKopi();
+            }}
+            className="group relative flex items-center gap-2 sm:gap-2.5 px-3.5 sm:px-4 py-2.5 sm:py-3 rounded-full bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-sky-950 font-black text-xs sm:text-sm shadow-xl shadow-amber-950/30 border-2 border-yellow-200 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer ring-4 ring-amber-400/20"
+            title="Traktir secangkir kopi untuk jurnalis & redaksi Arun News"
+            aria-label="Sawer Kopi Redaksi"
+          >
+            {/* Animated Coffee Cup & Steam Effect */}
+            <span className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-amber-950 text-yellow-300 shadow-inner group-hover:rotate-12 transition-transform">
+              <span className="text-base sm:text-lg select-none">☕</span>
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-400"></span>
+              </span>
+            </span>
+
+            <div className="flex flex-col text-left">
+              <span className="font-extrabold tracking-tight leading-none text-sky-950 text-xs sm:text-sm">
+                Sawer Kopi
+              </span>
+              <span className="text-[10px] font-semibold text-amber-950/80 leading-none mt-0.5 hidden xs:inline">
+                Traktir Redaksi
+              </span>
             </div>
 
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 text-amber-950 font-mono text-[11px] font-black uppercase tracking-wider mb-2 border border-amber-300">
-              <BookOpen className="w-3.5 h-3.5 text-amber-600" />
-              Progres Membaca: {scrollProgress}%
-            </div>
-
-            <h3 className="text-lg sm:text-xl font-black text-sky-950 mb-2 tracking-tight">
-              Belum Selesai Membaca?
-            </h3>
-
-            <p className="text-xs sm:text-sm text-slate-600 mb-4 leading-relaxed font-medium">
-              Anda baru membaca <span className="font-mono font-black text-amber-600">{scrollProgress}%</span> dari warta <span className="font-bold text-sky-950">"{article.title}"</span>. Masih tersisa <span className="font-mono font-black text-sky-900">{100 - scrollProgress}%</span> lagi untuk memperoleh pemahaman informasi yang utuh.
-            </p>
-
-            {/* Progress Bar Visual Preview */}
-            <div className="bg-slate-100 rounded-full h-3.5 w-full overflow-hidden p-0.5 border border-slate-200 mb-6 relative">
-              <div 
-                className="h-full rounded-full bg-gradient-to-r from-amber-500 to-yellow-400 transition-all duration-300 relative"
-                style={{ width: `${Math.max(6, scrollProgress)}%` }}
-              >
-                <span className="absolute right-1 top-0 bottom-0 text-[9px] font-mono font-black text-sky-950 flex items-center pr-1">
-                  {scrollProgress}%
-                </span>
-              </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex flex-col sm:flex-row items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => setIsCloseConfirmOpen(false)}
-                className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-sky-950 font-black text-xs sm:text-sm shadow-md border border-yellow-500 transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider"
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>Lanjutkan Membaca</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCloseConfirmOpen(false);
-                  onClose();
-                }}
-                className="w-full sm:w-auto py-3 px-4 rounded-xl bg-slate-100 hover:bg-rose-100 text-slate-600 hover:text-rose-800 font-bold text-xs transition-colors border border-slate-200 hover:border-rose-300 cursor-pointer"
-              >
-                Tetap Tutup
-              </button>
-            </div>
-          </div>
-        </div>
+            {/* Subtle Shine Ribbon */}
+            <span className="absolute inset-0 rounded-full overflow-hidden pointer-events-none">
+              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out"></span>
+            </span>
+          </button>
+        </aside>
       )}
 
       {/* Interactive Glossary Modal */}

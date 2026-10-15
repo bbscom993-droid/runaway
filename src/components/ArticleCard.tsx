@@ -418,9 +418,7 @@ export const ArticleCard: React.FC<ArticleCardProps> = ({
 }) => {
   const sentiment = analyzeArticleSentiment(article);
   const readingTimeInfo = getArticleReadingTime(article);
-  const effectiveProgress = readProgress !== undefined 
-    ? readProgress 
-    : (isRead ? 100 : 0);
+  const effectiveProgress = 0; // Hilangkan progress membaca otomatis pada kartu berita
 
   const sentimentBadgeColors = {
     Positif: 'bg-emerald-500/15 text-emerald-800 border-emerald-300',

@@ -250,7 +250,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center">
               {/* Category list items */}
               <div className="flex items-center gap-2 sm:gap-2.5 overflow-x-auto py-2.5 sm:py-3 no-scrollbar scroll-smooth w-full">
-                {categories.filter((cat) => cat.id !== 'akpersi' && cat.id !== 'box redaksi' && cat.id !== 'transportasi' && cat.id !== 'legalitas').map((cat) => {
+                {categories.filter((cat) => cat.id !== 'akpersi' && cat.id !== 'box redaksi' && cat.id !== 'transportasi').map((cat) => {
                   const isActive = selectedCategory === cat.id;
                   return (
                     <button
@@ -375,7 +375,7 @@ export const Header: React.FC<HeaderProps> = ({
               Kanal Berita
             </h4>
             <div className="grid grid-cols-2 gap-1.5">
-              {categories.filter((cat) => cat.id !== 'akpersi' && cat.id !== 'box redaksi' && cat.id !== 'transportasi' && cat.id !== 'legalitas').map((cat) => {
+              {categories.filter((cat) => cat.id !== 'akpersi' && cat.id !== 'box redaksi' && cat.id !== 'transportasi').map((cat) => {
                 const isActive = selectedCategory === cat.id;
                 const iconColorClass = isActive ? 'text-sky-950' : 'text-yellow-400';
                 return (

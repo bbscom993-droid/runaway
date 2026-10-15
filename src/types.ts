@@ -191,9 +191,11 @@ export interface AdSlot {
   name: string;
   position: 'top_billboard' | 'in_article' | 'sidebar_sticky' | 'bottom_sticky';
   isEnabled: boolean;
-  type: 'google_ads' | 'custom_banner' | 'advertorial';
+  type: 'google_ads' | 'custom_banner' | 'video_banner' | 'advertorial';
+  mediaType?: 'image' | 'video';
   advertiserName: string;
   bannerImage: string;
+  videoUrl?: string;
   targetUrl: string;
   title?: string;
   subtitle?: string;
