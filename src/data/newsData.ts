@@ -777,7 +777,7 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   moduleToggles: {
     showWeather: true,
     showTrending: true,
-    showTicker: false,
+    showTicker: true,
     showSpotlightHero: true,
     showTrendingGrid: true,
     showEditorPick: true,
@@ -795,7 +795,7 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
 };
 
 export const INITIAL_TICKER_SETTINGS: TickerSettings = {
-  isEnabled: false,
+  isEnabled: true,
   mode: 'auto',
   customMessage: '🔴 ARUN NEWS EKSKLUSIF: Ikuti pembaruan berita terkini secara real-time dari seluruh koresponden nusantara.',
   speed: 'normal',

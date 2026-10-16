@@ -52,10 +52,10 @@ export const BreakingTicker: React.FC<BreakingTickerProps> = ({
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       role="region"
-      aria-label="Running Text Berita Headline"
+      aria-label="Berita Terkini"
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 flex items-center gap-3">
-        {/* Running Text Headline Official Badge */}
+        {/* Ticker Headline Official Badge */}
         <div className="flex items-center gap-2 flex-shrink-0 z-10 pr-2 border-r border-sky-950/20 dark:border-white/20">
           <span className={`flex items-center gap-1.5 ${badgeClasses} text-[11px] sm:text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-xs border`}>
             <Zap className="w-3.5 h-3.5 fill-current animate-bounce text-yellow-400" />
@@ -69,7 +69,7 @@ export const BreakingTicker: React.FC<BreakingTickerProps> = ({
           </span>
         </div>
 
-        {/* Marquee Running Text Content */}
+        {/* Marquee Content */}
         <div className="flex-1 overflow-hidden min-w-0 relative mask-linear-fade">
           {tickerSettings?.mode === 'custom' ? (
             <div
@@ -98,7 +98,7 @@ export const BreakingTicker: React.FC<BreakingTickerProps> = ({
                   title={`Klik untuk membaca warta: ${art.title}`}
                 >
                   <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-sky-950 text-yellow-300 font-mono border border-sky-800 shadow-2xs group-hover:scale-105 transition-transform">
-                    {art.categoryLabel || 'Headline'}
+                    {art.categoryLabel || 'TERKINI'}
                   </span>
                   <p className={`text-xs sm:text-sm font-bold group-hover:underline transition-colors flex items-center gap-1.5 ${
                     theme === 'yellow' ? 'text-sky-950' : 'text-white'

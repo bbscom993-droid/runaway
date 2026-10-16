@@ -406,7 +406,7 @@ export default function App() {
     return INITIAL_TRANSPORT_SCHEDULES;
   });
 
-  // Ticker Settings (Running text berita headline dinonaktifkan sesuai permintaan)
+  // Ticker Settings (Running text berita headline aktif streaming berita, tanpa teks tulisan 'running text')
   const [tickerSettings, setTickerSettings] = useState<TickerSettings>(() => {
     const saved = localStorage.getItem('wartakini_ticker_settings');
     if (saved) {
@@ -415,12 +415,12 @@ export default function App() {
         if (parsed.customMessage && parsed.customMessage.includes('WARTAKINI')) {
           parsed.customMessage = parsed.customMessage.replace(/WARTAKINI/g, 'ARUN NEWS');
         }
-        return { ...parsed, isEnabled: false };
+        return { ...parsed, isEnabled: true };
       } catch (e) {
-        return { ...INITIAL_TICKER_SETTINGS, isEnabled: false };
+        return { ...INITIAL_TICKER_SETTINGS, isEnabled: true };
       }
     }
-    return { ...INITIAL_TICKER_SETTINGS, isEnabled: false };
+    return { ...INITIAL_TICKER_SETTINGS, isEnabled: true };
   });
 
   // Saved Bookmarks
