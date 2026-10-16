@@ -31,7 +31,10 @@ import {
   Layers,
   Info,
   Download,
-  FileText
+  FileText,
+  Video,
+  Film,
+  Play
 } from 'lucide-react';
 import { AdSlot, SEMSettings, SiteSettings } from '../../types';
 import { DEFAULT_AD_SLOTS, DEFAULT_SEM_SETTINGS, buildUtmUrl } from '../../utils/semEngine';
@@ -1051,74 +1054,243 @@ export const AdManagementView: React.FC<AdManagementViewProps> = ({
                 />
               </div>
 
-              {/* Banner Image URL + Local Upload */}
-              <div className="p-3 bg-sky-50 rounded-2xl border border-sky-200 space-y-2">
-                <label className="text-[11px] font-mono font-bold text-sky-950 block">
-                  Gambar Banner Iklan (URL atau Unggah Lokal)
-                </label>
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <img
-                    src={formData.bannerImage || 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=400&q=80'}
-                    alt="Preview"
-                    className="w-20 h-14 rounded-xl object-cover border border-sky-300 flex-shrink-0"
-                  />
-                  <div className="flex-1 w-full space-y-1.5">
-                    <input
-                      type="url"
-                      value={formData.bannerImage}
-                      onChange={(e) => setFormData({ ...formData, bannerImage: e.target.value })}
-                      placeholder="https://images.unsplash.com/... atau URL banner"
-                      className="w-full p-2 bg-white rounded-xl border border-sky-200 text-[11px] font-mono text-sky-950"
-                    />
-                    <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-sky-950 hover:bg-sky-900 text-yellow-300 rounded-xl text-[11px] font-mono font-bold transition-colors">
+              {/* Pilihan Format Media Iklan: Gambar Banner vs Video Iklan */}
+              <div className="p-3.5 bg-sky-50 rounded-2xl border border-sky-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-mono font-bold text-sky-950 uppercase flex items-center gap-1.5">
+                    <Megaphone className="w-3.5 h-3.5 text-sky-700" />
+                    <span>Format Media Iklan (Gambar &amp; Video)</span>
+                  </label>
+                  <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-sky-200 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, mediaType: 'image', type: formData.type === 'video_banner' ? 'custom_banner' : formData.type })}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        formData.mediaType !== 'video' ? 'bg-sky-950 text-yellow-300 shadow-xs' : 'text-slate-600 hover:text-sky-950'
+                      }`}
+                    >
                       <Camera className="w-3.5 h-3.5" />
-                      <span>Unggah Gambar Banner dari Komputer Lokal</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (evt) => {
-                              if (evt.target?.result) {
-                                setFormData({ ...formData, bannerImage: evt.target.result as string });
-                                showToast('Gambar banner lokal berhasil diunggah!');
-                              }
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
+                      <span>Gambar Banner</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, mediaType: 'video', type: 'video_banner' })}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        formData.mediaType === 'video' ? 'bg-sky-950 text-yellow-300 shadow-xs' : 'text-slate-600 hover:text-sky-950'
+                      }`}
+                    >
+                      <Film className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Video Iklan</span>
+                    </button>
                   </div>
                 </div>
 
-                {/* Preset Banner Quick Selection */}
-                <div className="pt-1 border-t border-sky-200/80">
-                  <span className="text-[10px] text-slate-500 font-mono block mb-1">
-                    Pilih Cepat Contoh Banner:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PRESET_BANNERS.map((preset, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => {
-                          setFormData({
-                            ...formData,
-                            bannerImage: preset.image,
-                            advertiserName: preset.brand,
-                          });
-                        }}
-                        className="px-2 py-0.5 rounded-lg bg-white border border-sky-200 text-sky-900 hover:bg-sky-100 text-[10px] font-mono transition-colors"
-                      >
-                        {preset.title}
-                      </button>
-                    ))}
+                {/* Sub-section: Video Ad Upload & Preview */}
+                {formData.mediaType === 'video' ? (
+                  <div className="p-3 bg-white rounded-xl border border-amber-300 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono font-bold text-amber-950 flex items-center gap-1">
+                        <Video className="w-3.5 h-3.5 text-amber-600" />
+                        Unggah Video Iklan Komersial (MP4 / WebM / Link Video)
+                      </span>
+                      <span className="text-[9px] bg-amber-100 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                        Format Video Aktif
+                      </span>
+                    </div>
+
+                    {/* Video Player Preview if available */}
+                    {formData.videoUrl ? (
+                      <div className="relative rounded-xl overflow-hidden bg-black aspect-video max-h-48 border border-slate-700 shadow-inner">
+                        <video
+                          src={formData.videoUrl}
+                          poster={formData.bannerImage}
+                          controls
+                          className="w-full h-full object-contain"
+                        />
+                        <div className="absolute top-2 left-2 bg-amber-500 text-sky-950 font-black text-[9px] font-mono px-2 py-0.5 rounded shadow">
+                          PREVIEW VIDEO IKLAN
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-32 rounded-xl border-2 border-dashed border-amber-300 bg-amber-50/50 flex flex-col items-center justify-center text-amber-800 text-xs">
+                        <Film className="w-8 h-8 text-amber-500 mb-1 animate-pulse" />
+                        <span className="font-bold">Belum ada file video iklan yang dipilih</span>
+                        <span className="text-[10px] text-slate-500">Unggah file MP4 atau masukkan tautan video di bawah</span>
+                      </div>
+                    )}
+
+                    {/* Video File Upload Button */}
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <label className="flex-1 cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-sky-950 rounded-xl text-xs font-mono font-black shadow-md transition-all active:scale-98">
+                        <Upload className="w-4 h-4 text-sky-950" />
+                        <span>Unggah File Video (MP4/WebM dari Komputer)</span>
+                        <input
+                          type="file"
+                          accept="video/mp4,video/webm,video/ogg,video/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                if (evt.target?.result) {
+                                  setFormData({
+                                    ...formData,
+                                    mediaType: 'video',
+                                    type: 'video_banner',
+                                    videoUrl: evt.target.result as string,
+                                  });
+                                  showToast('🎬 File video iklan berhasil diunggah!');
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {formData.videoUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, videoUrl: '' })}
+                          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold border border-rose-200 transition-colors cursor-pointer"
+                        >
+                          Hapus Video
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Video URL Alternative */}
+                    <div>
+                      <label className="text-[10px] font-mono font-bold text-slate-600 block mb-1">
+                        Atau Masukkan Tautan URL Video Langsung:
+                      </label>
+                      <input
+                        type="url"
+                        value={formData.videoUrl || ''}
+                        onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value, mediaType: 'video', type: 'video_banner' })}
+                        placeholder="https://commondatastorage.googleapis.com/... atau URL video MP4"
+                        className="w-full p-2 bg-white rounded-xl border border-amber-200 text-xs font-mono text-sky-950 focus:ring-2 focus:ring-amber-400"
+                      />
+                    </div>
+
+                    {/* Video Poster Thumbnail */}
+                    <div className="pt-2 border-t border-amber-200 flex items-center gap-3">
+                      <img
+                        src={formData.bannerImage || 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=400&q=80'}
+                        alt="Poster Preview"
+                        className="w-16 h-12 rounded-lg object-cover border border-amber-300 flex-shrink-0"
+                      />
+                      <div className="flex-1 space-y-1">
+                        <span className="text-[10px] font-mono font-bold text-slate-700 block">
+                          Gambar Thumbnail Poster Video (Sebelum Diputar):
+                        </span>
+                        <div className="flex gap-2">
+                          <input
+                            type="url"
+                            value={formData.bannerImage}
+                            onChange={(e) => setFormData({ ...formData, bannerImage: e.target.value })}
+                            placeholder="URL thumbnail gambar poster..."
+                            className="flex-1 p-1.5 bg-white rounded-lg border border-slate-200 text-[11px] font-mono"
+                          />
+                          <label className="cursor-pointer px-2.5 py-1.5 bg-sky-950 text-yellow-300 rounded-lg text-[10px] font-bold inline-flex items-center gap-1 hover:bg-sky-900">
+                            <Camera className="w-3 h-3" />
+                            <span>Unggah</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (evt) => {
+                                    if (evt.target?.result) {
+                                      setFormData({ ...formData, bannerImage: evt.target.result as string });
+                                      showToast('Poster video berhasil diunggah!');
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* Sub-section: Image Banner Upload & Preview */
+                  <div className="p-3 bg-white rounded-xl border border-sky-200 shadow-xs space-y-2">
+                    <label className="text-[11px] font-mono font-bold text-sky-950 block">
+                      Unggah File Gambar Banner Iklan dari Komputer / Masukkan URL
+                    </label>
+                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                      <img
+                        src={formData.bannerImage || 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=400&q=80'}
+                        alt="Preview"
+                        className="w-24 h-16 rounded-xl object-cover border border-sky-300 flex-shrink-0 shadow-xs"
+                      />
+                      <div className="flex-1 w-full space-y-1.5">
+                        <input
+                          type="url"
+                          value={formData.bannerImage}
+                          onChange={(e) => setFormData({ ...formData, bannerImage: e.target.value })}
+                          placeholder="https://images.unsplash.com/... atau URL banner"
+                          className="w-full p-2 bg-sky-50 rounded-xl border border-sky-200 text-[11px] font-mono text-sky-950"
+                        />
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-sky-950 hover:bg-sky-900 text-yellow-300 rounded-xl text-xs font-mono font-bold transition-all shadow-xs active:scale-98">
+                          <Upload className="w-3.5 h-3.5 text-yellow-400" />
+                          <span>Pilih &amp; Unggah File Gambar dari Komputer Lokal (JPG, PNG, WebP)</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                  if (evt.target?.result) {
+                                    setFormData({ ...formData, bannerImage: evt.target.result as string, mediaType: 'image' });
+                                    showToast('Gambar banner lokal berhasil diunggah!');
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Preset Banner Quick Selection */}
+                    <div className="pt-2 border-t border-sky-100">
+                      <span className="text-[10px] text-slate-500 font-mono block mb-1">
+                        Pilih Cepat Contoh Banner:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {PRESET_BANNERS.map((preset, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setFormData({
+                                ...formData,
+                                bannerImage: preset.image,
+                                advertiserName: preset.brand,
+                                mediaType: 'image',
+                              });
+                            }}
+                            className="px-2 py-0.5 rounded-lg bg-sky-50 border border-sky-200 text-sky-900 hover:bg-sky-100 text-[10px] font-mono transition-colors cursor-pointer"
+                          >
+                            {preset.title}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Target URL */}

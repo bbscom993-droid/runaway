@@ -68,7 +68,9 @@ import {
   Wand2,
   Megaphone,
   FolderPlus,
-  Tag
+  Tag,
+  Play,
+  Film
 } from 'lucide-react';
 import { 
   NewsArticle, 
@@ -320,6 +322,72 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
     if (window.confirm('Hapus jadwal keberangkatan ini dari daftar?')) {
       setTransportSchedules((prev) => prev.filter((s) => s.id !== id));
       showToast('Jadwal transportasi berhasil dihapus.');
+    }
+  };
+
+  // Video News CMS State & Handlers
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [editingVideoId, setEditingVideoId] = useState<string | null>(null);
+  const [videoForm, setVideoForm] = useState<Partial<VideoNews>>({
+    title: '',
+    category: 'Nasional',
+    duration: '04:15',
+    views: '120K ditonton',
+    thumbnail: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=800&q=80',
+    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    publishedAt: 'Baru saja'
+  });
+
+  const handleOpenAddVideo = () => {
+    setEditingVideoId(null);
+    setVideoForm({
+      title: '',
+      category: 'Nasional',
+      duration: '03:45',
+      views: '100K ditonton',
+      thumbnail: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=800&q=80',
+      videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+      publishedAt: 'Baru saja'
+    });
+    setIsVideoModalOpen(true);
+  };
+
+  const handleSaveVideo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!videoForm.title?.trim()) {
+      showToast('Judul video warta wajib diisi.');
+      return;
+    }
+    if (editingVideoId) {
+      setVideoNews((prev) =>
+        prev.map((v) =>
+          v.id === editingVideoId
+            ? { ...v, ...(videoForm as VideoNews) }
+            : v
+        )
+      );
+      showToast('Warta video berhasil diperbarui!');
+    } else {
+      const newVid: VideoNews = {
+        id: `vid-${Date.now()}`,
+        title: videoForm.title.trim(),
+        duration: videoForm.duration?.trim() || '03:30',
+        thumbnail: videoForm.thumbnail?.trim() || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=800&q=80',
+        views: videoForm.views?.trim() || '50K ditonton',
+        publishedAt: 'Baru saja',
+        category: videoForm.category?.trim() || 'Nasional',
+        videoUrl: videoForm.videoUrl?.trim() || 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
+      };
+      setVideoNews((prev) => [newVid, ...prev]);
+      showToast('Video warta baru berhasil diunggah & diterbitkan!');
+    }
+    setIsVideoModalOpen(false);
+  };
+
+  const handleDeleteVideo = (id: string, title: string) => {
+    if (window.confirm(`Hapus video warta: "${title}"?`)) {
+      setVideoNews((prev) => prev.filter((v) => v.id !== id));
+      showToast('Video berhasil dihapus.');
     }
   };
 
@@ -3333,56 +3401,384 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
           )}
 
           {/* ========================================================= */}
-          {/* TAB 10: VIDEO NEWS */}
+          {/* TAB 10: VIDEO NEWS & MULTIMEDIA CMS */}
           {/* ========================================================= */}
           {activeTab === 'videos' && (
-            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-sky-200 shadow-xs space-y-4 animate-in fade-in duration-200">
-              <div className="pb-3 border-b border-sky-100">
-                <h2 className="text-base sm:text-lg font-black uppercase tracking-tight text-sky-950">
-                  Warta Video & Multimedia
-                </h2>
-                <p className="text-xs text-slate-600 font-medium">
-                  Kelola video berita, durasi, dan takarir visual
-                </p>
+            <div className="bg-white rounded-2xl p-5 sm:p-6 border border-sky-200 shadow-xs space-y-6 animate-in fade-in duration-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sky-100">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="bg-yellow-400 text-sky-950 font-black text-[10px] font-mono px-2 py-0.5 rounded uppercase shadow-2xs">
+                      Multimedia &amp; Siaran
+                    </span>
+                    <span className="text-xs text-sky-700 font-mono font-bold">
+                      {videoNews.length} Video Ditayangkan
+                    </span>
+                  </div>
+                  <h2 className="text-base sm:text-xl font-black uppercase tracking-tight text-sky-950 font-mono">
+                    Warta Video &amp; Liputan Multimedia
+                  </h2>
+                  <p className="text-xs text-slate-600 font-medium mt-0.5">
+                    Unggah file video berita (MP4/WebM), kelola pemutar streaming, gambar thumbnail, durasi, dan statistik pemirsa.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleOpenAddVideo}
+                    className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-400 text-sky-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-all shadow-md active:scale-95 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4 text-sky-950" />
+                    <span>+ Unggah Video Baru</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Upload Video Modal / Drawer */}
+              {isVideoModalOpen && (
+                <div className="fixed inset-0 z-50 bg-sky-950/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+                  <div className="bg-white rounded-2xl max-w-xl w-full border-2 border-yellow-400 shadow-2xl overflow-hidden my-auto animate-in zoom-in-95 duration-200 flex flex-col max-h-[92vh]">
+                    <div className="bg-gradient-to-r from-sky-950 via-sky-900 to-indigo-950 text-white p-4 sm:p-5 flex items-center justify-between border-b border-sky-800 flex-shrink-0">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-yellow-400 text-sky-950 flex items-center justify-center font-black shadow-xs">
+                          <Film className="w-5 h-5 text-sky-950" />
+                        </div>
+                        <div>
+                          <span className="bg-yellow-400 text-sky-950 font-black text-[10px] px-2 py-0.5 rounded font-mono uppercase tracking-wider">
+                            Studio Video Redaksi
+                          </span>
+                          <h3 className="text-base sm:text-lg font-black text-white font-mono">
+                            {editingVideoId ? 'Edit Warta Video' : 'Unggah Video Berita Baru'}
+                          </h3>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsVideoModalOpen(false)}
+                        className="text-sky-300 hover:text-white p-1 rounded-lg"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    <form onSubmit={handleSaveVideo} className="p-5 overflow-y-auto space-y-4">
+                      {/* Judul Video */}
+                      <div>
+                        <label className="text-xs font-mono font-bold text-sky-950 block mb-1">
+                          Judul Warta Video *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={videoForm.title || ''}
+                          onChange={(e) => setVideoForm({ ...videoForm, title: e.target.value })}
+                          placeholder="cth: Pembangunan Kereta Cepat Tahap Dua Resmi Dimulai..."
+                          className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-bold text-xs focus:ring-2 focus:ring-yellow-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* Video Player Preview if Available */}
+                      <div className="p-3 bg-slate-900 rounded-2xl border border-slate-700 space-y-2">
+                        <span className="text-[11px] font-mono font-bold text-yellow-300 block">
+                          Preview Pemutar Video Warta:
+                        </span>
+                        {videoForm.videoUrl ? (
+                          <div className="relative rounded-xl overflow-hidden bg-black aspect-video max-h-48">
+                            <video
+                              src={videoForm.videoUrl}
+                              poster={videoForm.thumbnail}
+                              controls
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-32 rounded-xl border-2 border-dashed border-slate-700 bg-slate-800/60 flex flex-col items-center justify-center text-slate-400 text-xs">
+                            <Film className="w-8 h-8 text-yellow-400/70 mb-1" />
+                            <span>Pilih file video atau isi link video di bawah</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Unggah File Video MP4 dari Komputer */}
+                      <div className="p-3.5 bg-sky-50 rounded-2xl border border-sky-200 space-y-2">
+                        <label className="text-xs font-mono font-bold text-sky-950 block">
+                          Unggah File Video (MP4 / WebM dari Komputer Lokal):
+                        </label>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <label className="cursor-pointer inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-sky-950 hover:bg-sky-900 text-yellow-300 rounded-xl text-xs font-mono font-bold transition-colors shadow-xs">
+                            <Upload className="w-4 h-4 text-yellow-400" />
+                            <span>Pilih File Video MP4 / WebM</span>
+                            <input
+                              type="file"
+                              accept="video/mp4,video/webm,video/ogg,video/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = (evt) => {
+                                    if (evt.target?.result) {
+                                      setVideoForm({
+                                        ...videoForm,
+                                        videoUrl: evt.target.result as string,
+                                      });
+                                      showToast('File video lokal berhasil dimuat!');
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                          <input
+                            type="url"
+                            value={videoForm.videoUrl || ''}
+                            onChange={(e) => setVideoForm({ ...videoForm, videoUrl: e.target.value })}
+                            placeholder="Atau tautan streaming URL video (https://...)"
+                            className="flex-1 p-2 bg-white rounded-xl border border-sky-200 text-xs font-mono text-sky-950"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Thumbnail Poster Video */}
+                      <div className="p-3.5 bg-sky-50 rounded-2xl border border-sky-200 space-y-2">
+                        <label className="text-xs font-mono font-bold text-sky-950 block">
+                          Gambar Thumbnail Poster Video:
+                        </label>
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={videoForm.thumbnail || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?auto=format&fit=crop&w=800&q=80'}
+                            alt="Poster"
+                            className="w-20 h-14 rounded-xl object-cover border border-sky-300 flex-shrink-0"
+                          />
+                          <div className="flex-1 space-y-1.5">
+                            <input
+                              type="url"
+                              value={videoForm.thumbnail || ''}
+                              onChange={(e) => setVideoForm({ ...videoForm, thumbnail: e.target.value })}
+                              placeholder="URL thumbnail gambar (https://...)"
+                              className="w-full p-2 bg-white rounded-xl border border-sky-200 text-xs font-mono"
+                            />
+                            <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1 bg-sky-950 text-yellow-300 rounded-lg text-xs font-bold hover:bg-sky-900">
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>Unggah Foto dari Komputer</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    const reader = new FileReader();
+                                    reader.onload = (evt) => {
+                                      if (evt.target?.result) {
+                                        setVideoForm({ ...videoForm, thumbnail: evt.target.result as string });
+                                        showToast('Thumbnail poster video berhasil diunggah!');
+                                      }
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Meta Kategori, Durasi, Views */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                            Rubrik / Kategori
+                          </label>
+                          <input
+                            type="text"
+                            value={videoForm.category || 'Nasional'}
+                            onChange={(e) => setVideoForm({ ...videoForm, category: e.target.value })}
+                            className="w-full p-2 bg-sky-50 rounded-xl border border-sky-200 text-xs font-bold text-sky-950"
+                            placeholder="cth: Nasional, Ekonomi"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                            Durasi Video (MM:SS)
+                          </label>
+                          <input
+                            type="text"
+                            value={videoForm.duration || '03:45'}
+                            onChange={(e) => setVideoForm({ ...videoForm, duration: e.target.value })}
+                            className="w-full p-2 bg-sky-50 rounded-xl border border-sky-200 text-xs font-mono text-center text-sky-950 font-bold"
+                            placeholder="03:45"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                            Jumlah Penonton Awal
+                          </label>
+                          <input
+                            type="text"
+                            value={videoForm.views || '120K ditonton'}
+                            onChange={(e) => setVideoForm({ ...videoForm, views: e.target.value })}
+                            className="w-full p-2 bg-sky-50 rounded-xl border border-sky-200 text-xs font-mono text-center text-sky-950"
+                            placeholder="120K ditonton"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-sky-100 flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsVideoModalOpen(false)}
+                          className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold"
+                        >
+                          Batal
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-5 py-2 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs uppercase tracking-wider flex items-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>Simpan &amp; Terbitkan Video</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Grid of Existing Videos with Playable Previews */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {videoNews.map((vid, idx) => (
-                  <div key={vid.id} className="p-3 bg-sky-50 rounded-2xl border border-sky-200 space-y-2 text-xs">
-                    <img src={vid.thumbnail} alt={vid.title} className="w-full h-32 object-cover rounded-xl border border-sky-200" />
-                    <input
-                      type="text"
-                      value={vid.title}
-                      onChange={(e) => {
-                        const updated = [...videoNews];
-                        updated[idx].title = e.target.value;
-                        setVideoNews(updated);
-                      }}
-                      className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-sky-200 font-bold text-sky-950"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
+                  <div key={vid.id} className="p-4 bg-sky-50/70 rounded-2xl border border-sky-200 space-y-3 text-xs shadow-2xs hover:shadow-md transition-shadow">
+                    {/* Video Player or Thumbnail */}
+                    <div className="relative rounded-xl overflow-hidden bg-black aspect-video border border-sky-200 shadow-inner group">
+                      {vid.videoUrl ? (
+                        <video
+                          src={vid.videoUrl}
+                          poster={vid.thumbnail}
+                          controls
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <img
+                          src={vid.thumbnail}
+                          alt={vid.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        />
+                      )}
+                      <div className="absolute top-2 left-2 flex items-center gap-1.5 pointer-events-none">
+                        <span className="bg-sky-950/90 text-yellow-300 text-[10px] font-mono font-black px-2 py-0.5 rounded shadow">
+                          {vid.category || 'WARTA VIDEO'}
+                        </span>
+                        <span className="bg-black/80 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+                          {vid.duration}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Judul Berita Video */}
+                    <div>
+                      <label className="text-[10px] font-mono font-bold text-slate-500 uppercase block mb-1">
+                        Judul Warta Video:
+                      </label>
                       <input
                         type="text"
-                        value={vid.duration}
+                        value={vid.title}
                         onChange={(e) => {
                           const updated = [...videoNews];
-                          updated[idx].duration = e.target.value;
+                          updated[idx].title = e.target.value;
                           setVideoNews(updated);
                         }}
-                        className="px-2 py-1 bg-white rounded border border-sky-200 font-mono text-center"
-                        placeholder="Durasi (04:30)"
+                        className="w-full px-2.5 py-1.5 bg-white rounded-lg border border-sky-200 font-bold text-sky-950 text-xs"
                       />
-                      <input
-                        type="text"
-                        value={vid.views}
-                        onChange={(e) => {
-                          const updated = [...videoNews];
-                          updated[idx].views = e.target.value;
-                          setVideoNews(updated);
-                        }}
-                        className="px-2 py-1 bg-white rounded border border-sky-200 font-mono text-center"
-                        placeholder="180K ditonton"
-                      />
+                    </div>
+
+                    {/* Video File / URL Input */}
+                    <div>
+                      <label className="text-[10px] font-mono font-bold text-slate-500 uppercase block mb-1">
+                        File / URL Video:
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={vid.videoUrl || ''}
+                          onChange={(e) => {
+                            const updated = [...videoNews];
+                            updated[idx].videoUrl = e.target.value;
+                            setVideoNews(updated);
+                          }}
+                          placeholder="Tautan URL video atau unggah file..."
+                          className="flex-1 px-2 py-1 bg-white rounded border border-sky-200 font-mono text-[11px]"
+                        />
+                        <label className="cursor-pointer px-2.5 py-1 bg-sky-950 hover:bg-sky-900 text-yellow-300 rounded font-bold text-[10px] flex items-center gap-1 flex-shrink-0">
+                          <Upload className="w-3 h-3" />
+                          <span>Ganti Video</span>
+                          <input
+                            type="file"
+                            accept="video/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (evt) => {
+                                  if (evt.target?.result) {
+                                    const updated = [...videoNews];
+                                    updated[idx].videoUrl = evt.target.result as string;
+                                    setVideoNews(updated);
+                                    showToast(`Video untuk "${vid.title}" berhasil diperbarui!`);
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Meta Fields: Durasi & Views & Action */}
+                    <div className="grid grid-cols-3 gap-2 items-center pt-1 border-t border-sky-100">
+                      <div>
+                        <span className="text-[9px] text-slate-500 font-mono block">DURASI</span>
+                        <input
+                          type="text"
+                          value={vid.duration}
+                          onChange={(e) => {
+                            const updated = [...videoNews];
+                            updated[idx].duration = e.target.value;
+                            setVideoNews(updated);
+                          }}
+                          className="w-full px-2 py-1 bg-white rounded border border-sky-200 font-mono text-center font-bold text-xs"
+                          placeholder="04:30"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-slate-500 font-mono block">PENONTON</span>
+                        <input
+                          type="text"
+                          value={vid.views}
+                          onChange={(e) => {
+                            const updated = [...videoNews];
+                            updated[idx].views = e.target.value;
+                            setVideoNews(updated);
+                          }}
+                          className="w-full px-2 py-1 bg-white rounded border border-sky-200 font-mono text-center text-xs"
+                          placeholder="180K ditonton"
+                        />
+                      </div>
+                      <div className="flex justify-end pt-3">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteVideo(vid.id, vid.title)}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg text-xs font-bold border border-rose-200 flex items-center gap-1 cursor-pointer transition-colors"
+                          title="Hapus video berita ini"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Hapus</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}

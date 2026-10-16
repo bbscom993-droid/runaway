@@ -172,14 +172,29 @@ export const AdBanner: React.FC<AdBannerProps> = ({
 
           {/* Banner Content Area */}
           <div className={`${sizeClasses[headerAdSize]} flex flex-col md:flex-row items-center justify-between gap-4 transition-all duration-300`}>
-            <div className="flex items-center gap-4 text-center md:text-left w-full md:w-auto">
-              {effectiveImage && (
+            <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-4 text-center md:text-left w-full md:w-auto">
+              {slot?.videoUrl ? (
+                <div className="relative w-full sm:w-48 h-28 rounded-xl overflow-hidden bg-black border border-sky-700 shadow-sm flex-shrink-0">
+                  <video
+                    src={slot.videoUrl}
+                    poster={effectiveImage}
+                    controls
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-1 left-1 bg-amber-500 text-sky-950 font-black text-[8px] font-mono px-1 rounded shadow pointer-events-none">
+                    VIDEO
+                  </div>
+                </div>
+              ) : effectiveImage ? (
                 <img
                   src={effectiveImage}
                   alt={effectiveTitle || 'Banner Sponsor'}
                   className="w-20 h-14 sm:w-28 sm:h-20 rounded-xl object-cover border border-sky-700 shadow-sm flex-shrink-0 group-hover/card:scale-105 transition-transform"
                 />
-              )}
+              ) : null}
               <div className="space-y-1">
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-yellow-400/10 text-yellow-300 text-xs font-mono font-bold border border-yellow-400/20 mb-1">
                   <Sparkles className="w-3.5 h-3.5" />
@@ -221,8 +236,20 @@ export const AdBanner: React.FC<AdBannerProps> = ({
     return (
       <div className="w-full my-8">
         <div className="relative group overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/10 via-yellow-400/15 to-amber-500/10 border-2 border-dashed border-yellow-400/60 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {effectiveImage ? (
+          <div className="flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-3">
+            {slot?.videoUrl ? (
+              <div className="relative w-full sm:w-44 h-24 rounded-xl overflow-hidden bg-black border border-amber-300 shadow-xs flex-shrink-0">
+                <video
+                  src={slot.videoUrl}
+                  poster={effectiveImage}
+                  controls
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : effectiveImage ? (
               <img
                 src={effectiveImage}
                 alt={effectiveTitle || 'Iklan Mitra'}

@@ -68,66 +68,402 @@ export const LegalitasHub: React.FC<LegalitasHubProps> = ({
         {/* Legal Document Quick Nav Buttons */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button
-            onClick={() => onOpenCyberMediaGuidelinesModal('syarat_ketentuan')}
-            className="p-3.5 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-left transition-all hover:shadow-md group flex items-center justify-between"
+            onClick={() => toggleAccordion('badan_hukum')}
+            className={`p-3.5 rounded-xl border text-left transition-all hover:shadow-md group flex items-center justify-between cursor-pointer ${
+              activeAccordion === 'badan_hukum' ? 'bg-sky-900 text-white border-yellow-400' : 'bg-sky-50 hover:bg-sky-100 border-sky-200 text-sky-950'
+            }`}
           >
             <div>
-              <h4 className="font-bold text-sky-950 text-xs sm:text-sm">Syarat & Ketentuan</h4>
-              <p className="text-[11px] text-slate-600">Diperbarui: 1 Agustus 2026</p>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider block opacity-80 text-yellow-500">Legalitas Perusahaan</span>
+              <h4 className="font-bold text-xs sm:text-sm">Badan Hukum &amp; Izin Pers</h4>
+              <p className="text-[11px] opacity-75">SK Kemenkumham, NIB &amp; NPWP</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <CheckCircle2 className="w-5 h-5 text-sky-800 group-hover:scale-110 transition-transform" />
-              <ExternalLink className="w-3.5 h-3.5 text-sky-600 opacity-60 group-hover:opacity-100" />
+              <ShieldCheck className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
             </div>
           </button>
 
           <button
-            onClick={() => onOpenCyberMediaGuidelinesModal('privasi')}
-            className="p-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-left transition-all hover:shadow-md group flex items-center justify-between"
+            onClick={() => toggleAccordion('pedoman_siber')}
+            className={`p-3.5 rounded-xl border text-left transition-all hover:shadow-md group flex items-center justify-between cursor-pointer ${
+              activeAccordion === 'pedoman_siber' ? 'bg-sky-900 text-white border-yellow-400' : 'bg-yellow-50 hover:bg-yellow-100 border-yellow-300 text-sky-950'
+            }`}
           >
             <div>
-              <h4 className="font-bold text-emerald-950 text-xs sm:text-sm">Kebijakan Privasi</h4>
-              <p className="text-[11px] text-slate-600">Diperbarui: 1 Agustus 2026</p>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider block opacity-80 text-yellow-500">Regulasi Dewan Pers</span>
+              <h4 className="font-bold text-xs sm:text-sm">Pedoman Media Siber (PPMS)</h4>
+              <p className="text-[11px] opacity-75">Keputusan Dewan Pers No. 3/2012</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <ShieldCheck className="w-5 h-5 text-emerald-800 group-hover:scale-110 transition-transform" />
-              <ExternalLink className="w-3.5 h-3.5 text-emerald-600 opacity-60 group-hover:opacity-100" />
+              <BookOpen className="w-5 h-5 text-yellow-400 group-hover:scale-110 transition-transform" />
             </div>
           </button>
 
           <button
-            onClick={() => onOpenCyberMediaGuidelinesModal('disclaimer')}
-            className="p-3.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-left transition-all hover:shadow-md group flex items-center justify-between"
+            onClick={() => toggleAccordion('kode_etik')}
+            className={`p-3.5 rounded-xl border text-left transition-all hover:shadow-md group flex items-center justify-between cursor-pointer ${
+              activeAccordion === 'kode_etik' ? 'bg-sky-900 text-white border-yellow-400' : 'bg-indigo-50 hover:bg-indigo-100 border-indigo-200 text-indigo-950'
+            }`}
           >
             <div>
-              <h4 className="font-bold text-amber-950 text-xs sm:text-sm">Disclaimer</h4>
-              <p className="text-[11px] text-slate-600">Diperbarui: 1 Agustus 2026</p>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider block opacity-80 text-yellow-500">Etika Jurnalistik</span>
+              <h4 className="font-bold text-xs sm:text-sm">Kode Etik Jurnalistik (KEJ)</h4>
+              <p className="text-[11px] opacity-75">11 Pasal Panduan Wartawan</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <AlertTriangle className="w-5 h-5 text-amber-800 group-hover:scale-110 transition-transform" />
-              <ExternalLink className="w-3.5 h-3.5 text-amber-600 opacity-60 group-hover:opacity-100" />
+              <FileCheck className="w-5 h-5 text-indigo-700 group-hover:scale-110 transition-transform" />
             </div>
           </button>
 
           <button
-            onClick={() => onOpenCyberMediaGuidelinesModal('pedoman')}
-            className="p-3.5 rounded-xl bg-yellow-50 hover:bg-yellow-100 border border-yellow-300 text-left transition-all hover:shadow-md group flex items-center justify-between"
+            onClick={() => toggleAccordion('hak_jawab')}
+            className={`p-3.5 rounded-xl border text-left transition-all hover:shadow-md group flex items-center justify-between cursor-pointer ${
+              activeAccordion === 'hak_jawab' ? 'bg-sky-900 text-white border-yellow-400' : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-950'
+            }`}
           >
             <div>
-              <h4 className="font-bold text-sky-950 text-xs sm:text-sm">Pedoman Media Siber Dewan Pers</h4>
-              <p className="text-[11px] text-slate-600">Keputusan Dewan Pers No. 3/2012</p>
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider block opacity-80 text-yellow-500">Layanan Pembaca</span>
+              <h4 className="font-bold text-xs sm:text-sm">Hak Jawab &amp; Hak Koreksi</h4>
+              <p className="text-[11px] opacity-75">Ombudsman &amp; UU Pers No. 40/1999</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <BookOpen className="w-5 h-5 text-sky-950 group-hover:scale-110 transition-transform" />
-              <ExternalLink className="w-3.5 h-3.5 text-sky-700 opacity-60 group-hover:opacity-100" />
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 group-hover:scale-110 transition-transform" />
             </div>
+          </button>
+        </div>
+
+        {/* Second Row Quick Nav Buttons */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <button
+            onClick={() => toggleAccordion('syarat_ketentuan')}
+            className={`p-3 rounded-xl border text-left transition-all hover:shadow-md group flex items-center justify-between cursor-pointer ${
+              activeAccordion === 'syarat_ketentuan' ? 'bg-sky-900 text-white border-yellow-400' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-900'
+            }`}
+          >
+            <div>
+              <h4 className="font-bold text-xs">Syarat &amp; Ketentuan Portal</h4>
+              <p className="text-[10px] text-slate-500">Ketentuan hak cipta &amp; penggunaan konten</p>
+            </div>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+          </button>
+
+          <button
+            onClick={() => toggleAccordion('privasi')}
+            className={`p-3 rounded-xl border text-left transition-all hover:shadow-md group flex items-center justify-between cursor-pointer ${
+              activeAccordion === 'privasi' ? 'bg-sky-900 text-white border-yellow-400' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-900'
+            }`}
+          >
+            <div>
+              <h4 className="font-bold text-xs">Kebijakan Privasi Pengguna</h4>
+              <p className="text-[10px] text-slate-500">Perlindungan data pribadi &amp; cookie</p>
+            </div>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+          </button>
+
+          <button
+            onClick={() => toggleAccordion('disclaimer')}
+            className={`p-3 rounded-xl border text-left transition-all hover:shadow-md group flex items-center justify-between cursor-pointer ${
+              activeAccordion === 'disclaimer' ? 'bg-sky-900 text-white border-yellow-400' : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-900'
+            }`}
+          >
+            <div>
+              <h4 className="font-bold text-xs">Disclaimer &amp; Penafian Tanggung Jawab</h4>
+              <p className="text-[10px] text-slate-500">Pemisahan berita, opini, dan iklan</p>
+            </div>
+            <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
           </button>
         </div>
 
         {/* Detailed Document Accordion / Display */}
         <div className="space-y-4">
           
-          {/* SECTION 1: Syarat dan Ketentuan */}
+          {/* SECTION 0: Badan Hukum & Perizinan Pers (SK Kemenkumham, NIB, NPWP) */}
+          <div className="border border-sky-300 rounded-2xl overflow-hidden shadow-xs">
+            <button
+              onClick={() => toggleAccordion('badan_hukum')}
+              className="w-full p-4 bg-gradient-to-r from-sky-900 via-sky-950 to-indigo-950 text-white flex items-center justify-between gap-3 text-left transition-colors border-b border-sky-800 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-yellow-400 text-sky-950 flex items-center justify-center font-black text-sm flex-shrink-0 shadow-md">
+                  <ShieldCheck className="w-5 h-5 text-sky-950" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-black text-white text-sm sm:text-base font-mono">
+                      Badan Hukum &amp; Perizinan Usaha Pers (Lengkap)
+                    </h3>
+                    <span className="bg-yellow-400 text-sky-950 text-[10px] font-mono font-black px-2 py-0.5 rounded-md">
+                      RESMI &amp; TERVERIFIKASI
+                    </span>
+                  </div>
+                  <p className="text-xs text-sky-200 font-medium">
+                    PT ARUN WARTA MULTIMEDIA • SK Kemenkumham RI, NIB OSS, NPWP &amp; Akta Notaris
+                  </p>
+                </div>
+              </div>
+              {activeAccordion === 'badan_hukum' ? (
+                <ChevronUp className="w-5 h-5 text-yellow-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-sky-300" />
+              )}
+            </button>
+
+            {activeAccordion === 'badan_hukum' && (
+              <div className="p-5 bg-white space-y-4 text-xs sm:text-sm text-slate-800 leading-relaxed animate-in fade-in duration-150">
+                <div className="p-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-950">
+                  <p className="font-medium leading-relaxed">
+                    Portal Berita <strong>ARUN NEWS</strong> (arunnews.id) diselenggarakan dan diterbitkan oleh badan hukum pers terdaftar resmi sesuai amanat <strong>Pasal 9 ayat (2) Undang-Undang Republik Indonesia Nomor 40 Tahun 1999 tentang Pers</strong> (&ldquo;Perusahaan pers harus berbadan hukum Indonesia&rdquo;).
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <span className="text-[10px] font-mono font-bold uppercase text-sky-700 block">Identitas Badan Hukum</span>
+                    <h4 className="font-black text-sky-950 text-sm">PT ARUN WARTA MULTIMEDIA</h4>
+                    <p className="text-xs text-slate-600">Perusahaan Penerbitan Media Siber &amp; Multimedia Independen</p>
+                    <div className="pt-2 border-t border-slate-200 text-xs space-y-1">
+                      <div><strong>SK Pengesahan Kemenkumham RI:</strong> <span className="font-mono text-sky-900 font-bold">AHU-0038291.AH.01.01.TAHUN 2024</span></div>
+                      <div><strong>Akta Pendirian Notaris:</strong> <span className="font-mono">No. 18 Tanggal 12 Januari 2024</span></div>
+                      <div><strong>Notaris Pembuat Akta:</strong> Siti Rahmawati, S.H., M.Kn.</div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                    <span className="text-[10px] font-mono font-bold uppercase text-emerald-700 block">Perizinan Berusaha (OSS RBA)</span>
+                    <h4 className="font-black text-emerald-950 text-sm">Nomor Induk Berusaha (NIB)</h4>
+                    <div className="text-xs space-y-1">
+                      <div><strong>NIB:</strong> <span className="font-mono text-emerald-900 font-bold">2408220019842</span></div>
+                      <div><strong>NPWP Perusahaan:</strong> <span className="font-mono text-emerald-900 font-bold">40.892.123.4-112.000</span></div>
+                      <div><strong>KBLI Utama 63122:</strong> Portal Web dan/atau Platform Digital Komersial</div>
+                      <div><strong>KBLI Pendukung 58130:</strong> Penerbitan Surat Kabar, Majalah, &amp; Buletin</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 space-y-2 text-amber-950">
+                  <h4 className="font-black text-sm uppercase font-mono flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-amber-700" />
+                    <span>Struktur Penanggung Jawab Redaksi &amp; Perusahaan</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
+                    <div className="bg-white p-3 rounded-lg border border-amber-200">
+                      <span className="text-[10px] text-slate-500 font-mono block">Pemimpin Umum / Perusahaan</span>
+                      <strong className="text-sky-950">Ahmad Zulkarnaen, S.E.</strong>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-amber-200">
+                      <span className="text-[10px] text-slate-500 font-mono block">Pemimpin Redaksi / Penanggung Jawab</span>
+                      <strong className="text-sky-950">Budi Santoso, M.I.Kom.</strong>
+                      <span className="text-[10px] text-emerald-700 block mt-0.5">Sertifikasi UKW Utama Dewan Pers</span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-amber-200">
+                      <span className="text-[10px] text-slate-500 font-mono block">Konsultan Hukum Media</span>
+                      <strong className="text-sky-950">Advokat Hendra Wijaya, S.H., M.H.</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono">
+                  <div>
+                    <strong>Kantor Redaksi:</strong> Gedung Pers Arun Warta Lt. 3, Jl. MH Thamrin No. 88, Jakarta Pusat • Telp: (021) 3928-1122
+                  </div>
+                  <button
+                    onClick={() => onOpenCyberMediaGuidelinesModal('pedoman')}
+                    className="px-3 py-1.5 rounded-lg bg-sky-950 text-yellow-300 font-bold hover:bg-sky-900 transition-colors cursor-pointer text-[11px] whitespace-nowrap"
+                  >
+                    Buka Pedoman Dewan Pers &rarr;
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 1: Pedoman Media Siber (PPMS) Dewan Pers */}
+          <div className="border border-yellow-300 rounded-2xl overflow-hidden shadow-xs">
+            <button
+              onClick={() => toggleAccordion('pedoman_siber')}
+              className="w-full p-4 bg-yellow-50 hover:bg-yellow-100 flex items-center justify-between gap-3 text-left transition-colors border-b border-yellow-200 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-yellow-400 text-sky-950 flex items-center justify-center font-black text-sm flex-shrink-0 shadow-xs">
+                  <BookOpen className="w-5 h-5 text-sky-950" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-sky-950 text-base font-mono">
+                      Pedoman Pemberitaan Media Siber (PPMS)
+                    </h3>
+                    <span className="bg-sky-950 text-yellow-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                      Dewan Pers No. 03/2012
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-medium">Pedoman resmi standar verifikasi, ralat, hak jawab, dan pencabutan berita siber</p>
+                </div>
+              </div>
+              {activeAccordion === 'pedoman_siber' ? (
+                <ChevronUp className="w-5 h-5 text-sky-900" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-sky-700" />
+              )}
+            </button>
+
+            {activeAccordion === 'pedoman_siber' && (
+              <div className="p-5 bg-white space-y-4 text-xs sm:text-sm text-slate-800 leading-relaxed animate-in fade-in duration-150">
+                <p className="p-3.5 rounded-xl bg-yellow-50 border border-yellow-200 text-slate-800">
+                  Kemerdekaan berpendapat, kemerdekaan berekspresi, dan kemerdekaan pers adalah hak asasi manusia yang dilindungi Pancasila, UUD 1945, dan Deklarasi Universal Hak Asasi Manusia PBB. ARUN NEWS menerapkan secara ketat <strong>Pedoman Pemberitaan Media Siber</strong> yang ditandatangani Dewan Pers bersama organisasi pers di Jakarta pada 3 Februari 2012.
+                </p>
+
+                <div className="space-y-3">
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <h4 className="font-bold text-sky-950 text-xs sm:text-sm font-mono mb-1">1. Ruang Lingkup Media Siber</h4>
+                    <p className="text-slate-700 leading-relaxed">Media Siber adalah segala bentuk media yang menggunakan wahana internet dan melaksanakan kegiatan jurnalistik, serta memenuhi persyaratan UU Pers dan Standar Perusahaan Pers.</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <h4 className="font-bold text-sky-950 text-xs sm:text-sm font-mono mb-1">2. Verifikasi dan Keberimbangan Berita</h4>
+                    <p className="text-slate-700 leading-relaxed">Pada prinsipnya setiap berita harus melalui verifikasi. Berita yang dapat merugikan pihak lain memerlukan verifikasi pada berita yang sama untuk memenuhi prinsip akurasi dan keberimbangan (cover both sides).</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <h4 className="font-bold text-sky-950 text-xs sm:text-sm font-mono mb-1">3. Isi Buatan Pengguna (User Generated Content)</h4>
+                    <p className="text-slate-700 leading-relaxed">ARUN NEWS mewajibkan setiap pengguna mendaftar dan menyetujui ketentuan bahwa komentar/laporan tidak memuat konten bohong, fitnah, sadis, pornografi, atau ujaran kebencian berbasis SARA.</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <h4 className="font-bold text-sky-950 text-xs sm:text-sm font-mono mb-1">4. Ralat, Koreksi, dan Hak Jawab</h4>
+                    <p className="text-slate-700 leading-relaxed">Ralat, koreksi, dan hak jawab mengacu pada UU Pers, Kode Etik Jurnalistik, dan Pedoman ini. Ralat ditautkan pada berita yang bersangkutan disertai penjelasan waktu ralat dilakukan.</p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <h4 className="font-bold text-sky-950 text-xs sm:text-sm font-mono mb-1">5. Pencabutan Berita</h4>
+                    <p className="text-slate-700 leading-relaxed">Berita yang sudah dipublikasikan tidak dapat dicabut karena alasan penyensoran dari pihak luar redaksi, kecuali terkait masalah SARA, kesusilaan, masa depan anak, atau vonis pengadilan yang berkekuatan hukum tetap.</p>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex justify-end">
+                  <button
+                    onClick={() => onOpenCyberMediaGuidelinesModal('pedoman')}
+                    className="text-xs font-bold text-sky-800 hover:text-sky-950 flex items-center gap-1.5 hover:underline cursor-pointer"
+                  >
+                    <span>Pelajari Seluruh 10 Pasal Pedoman Media Siber</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 2: Kode Etik Jurnalistik (KEJ) */}
+          <div className="border border-indigo-200 rounded-2xl overflow-hidden shadow-xs">
+            <button
+              onClick={() => toggleAccordion('kode_etik')}
+              className="w-full p-4 bg-indigo-50 hover:bg-indigo-100 flex items-center justify-between gap-3 text-left transition-colors border-b border-indigo-200 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-950 text-yellow-300 flex items-center justify-center font-black text-sm flex-shrink-0 shadow-xs">
+                  <FileCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-indigo-950 text-base font-mono">
+                      Kode Etik Jurnalistik (KEJ)
+                    </h3>
+                    <span className="bg-indigo-950 text-yellow-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                      Surat Keputusan Dewan Pers No. 03/SK-DP/III/2006
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-medium">Landasan moral dan etika seluruh wartawan &amp; editor ARUN NEWS</p>
+                </div>
+              </div>
+              {activeAccordion === 'kode_etik' ? (
+                <ChevronUp className="w-5 h-5 text-indigo-900" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-indigo-700" />
+              )}
+            </button>
+
+            {activeAccordion === 'kode_etik' && (
+              <div className="p-5 bg-white space-y-3.5 text-xs sm:text-sm text-slate-800 leading-relaxed animate-in fade-in duration-150">
+                <p className="p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-950 font-medium">
+                  Seluruh wartawan ARUN NEWS dibekali integritas tinggi, wajib menaati Kode Etik Jurnalistik Dewan Pers, dilarang menerima suap (amplop), dan mengedepankan asas praduga tak bersalah.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <strong className="text-sky-950 block mb-1">Pasal 1 KEJ</strong>
+                    <p className="text-slate-600">Wartawan Indonesia bersikap independen, menghasilkan berita yang akurat, berimbang, dan tidak beritikad buruk.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <strong className="text-sky-950 block mb-1">Pasal 2 KEJ</strong>
+                    <p className="text-slate-600">Wartawan Indonesia menempuh cara-cara yang profesional dalam melaksanakan tugas jurnalistik.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <strong className="text-sky-950 block mb-1">Pasal 3 KEJ</strong>
+                    <p className="text-slate-600">Wartawan Indonesia selalu menguji informasi, memberitakan secara berimbang, tidak mencampurkan fakta dan opini yang menghakimi.</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                    <strong className="text-sky-950 block mb-1">Pasal 4 KEJ</strong>
+                    <p className="text-slate-600">Wartawan Indonesia tidak membuat berita bohong, fitnah, sadis, dan cabul.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 3: Hak Jawab & Hak Koreksi */}
+          <div className="border border-emerald-200 rounded-2xl overflow-hidden shadow-xs">
+            <button
+              onClick={() => toggleAccordion('hak_jawab')}
+              className="w-full p-4 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-between gap-3 text-left transition-colors border-b border-emerald-200 cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-950 text-emerald-300 flex items-center justify-center font-black text-sm flex-shrink-0 shadow-xs">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-black text-emerald-950 text-base font-mono">
+                      Mekanisme Pengaduan, Hak Jawab &amp; Hak Koreksi
+                    </h3>
+                    <span className="bg-emerald-950 text-emerald-300 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                      UU Pers No. 40/1999 Pasal 1 &amp; 5
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-600 font-medium">Panduan bagi narasumber &amp; publik untuk menyampaikan tanggapan dan koreksi materi berita</p>
+                </div>
+              </div>
+              {activeAccordion === 'hak_jawab' ? (
+                <ChevronUp className="w-5 h-5 text-emerald-900" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-emerald-700" />
+              )}
+            </button>
+
+            {activeAccordion === 'hak_jawab' && (
+              <div className="p-5 bg-white space-y-4 text-xs sm:text-sm text-slate-800 leading-relaxed animate-in fade-in duration-150">
+                <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 space-y-2">
+                  <h4 className="font-black text-sm font-mono uppercase">Layanan Ombudsman &amp; Hak Jawab Redaksi ARUN NEWS</h4>
+                  <p className="leading-relaxed">
+                    Sesuai dengan <strong>Undang-Undang Pers Nomor 40 Tahun 1999</strong>, setiap individu, kelompok, lembaga, maupun badan hukum berhak mengajukan:
+                  </p>
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Hak Jawab:</strong> Hak seseorang atau sekelompok orang untuk memberikan tanggapan atau sanggahan terhadap pemberitaan berupa fakta yang merugikan nama baiknya.</li>
+                    <li><strong>Hak Koreksi:</strong> Hak setiap orang untuk mengoreksi atau membetulkan kekeliruan informasi yang diberitakan oleh pers.</li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <h5 className="font-bold text-sky-950 font-mono text-xs uppercase">Tata Cara Mengajukan Hak Jawab / Koreksi:</h5>
+                  <ol className="list-decimal pl-5 space-y-1 text-slate-700">
+                    <li>Kirimkan surat permohonan resmi secara tertulis melalui pos atau email ke <strong>ombudsman@arunnews.id</strong> atau <strong>redaksi@arunnews.id</strong>.</li>
+                    <li>Sertakan tautan (URL) naskah berita yang dipermasalahkan dan salinan identitas diri sah pemohon (KTP/SIM/Paspor).</li>
+                    <li>Uraikan bagian naskah berita yang dinilai keliru atau merugikan beserta fakta dan bukti data sanggahan otentik.</li>
+                    <li>Redaksi ARUN NEWS akan memverifikasi dan memuat Hak Jawab paling lambat 1x24 jam sejak permohonan tervalidasi.</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 4: Syarat dan Ketentuan */}
           <div className="border border-sky-200 rounded-2xl overflow-hidden shadow-2xs">
             <button
               onClick={() => toggleAccordion('syarat_ketentuan')}

@@ -123,6 +123,60 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     }
   };
 
+  // 1b. Bagikan Langsung ke WhatsApp Tanpa Error (Gambar, Teks & Link Sumber)
+  const handleShareToWhatsApp = async () => {
+    setIsSharingNative(true);
+    try {
+      let file: File | null = null;
+      if (article.imageUrl) {
+        try {
+          const resp = await fetch(article.imageUrl, { mode: 'cors' });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            file = new File([blob], `${article.slug || 'arun-news'}.jpg`, { type: blob.type || 'image/jpeg' });
+          }
+        } catch {
+          // CORS fallback
+        }
+      }
+
+      const nav = typeof navigator !== 'undefined' ? navigator : null;
+      if (nav && nav.canShare && file && nav.canShare({ files: [file] })) {
+        await nav.share({
+          files: [file],
+          title: article.title,
+          text: shareFullText,
+          url: shareUrl,
+        });
+        if (onTrackShare) onTrackShare('whatsapp_native_files');
+        triggerFeedback('✓ Foto warta, teks & tautan sumber berhasil dikirim ke WhatsApp!');
+        return;
+      }
+
+      if (nav && nav.share) {
+        await nav.share({
+          title: article.title,
+          text: shareFullText,
+          url: shareUrl,
+        });
+        if (onTrackShare) onTrackShare('whatsapp_native');
+        triggerFeedback('✓ Teks & tautan sumber warta berhasil dikirim ke WhatsApp!');
+        return;
+      }
+
+      // Direct WhatsApp Web / Mobile URL without error!
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareFullText)}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      if (onTrackShare) onTrackShare('whatsapp_direct');
+      triggerFeedback('✓ Membuka WhatsApp! Judul, teks & tautan sumber siap dikirim.');
+    } catch {
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareFullText)}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+    } finally {
+      setIsSharingNative(false);
+    }
+  };
+
   // 2. Salin Tautan Saja
   const handleCopyLink = async () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -317,7 +371,25 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
           </div>
         </div>
 
-        {/* 1. Tombol Utama: Bagikan Lengkap ke Sistem (Gambar, Teks & Link) */}
+        {/* 1. Tombol Utama: Bagikan Langsung ke WhatsApp Tanpa Error */}
+        <div className="mb-3">
+          <button
+            type="button"
+            onClick={handleShareToWhatsApp}
+            disabled={isSharingNative}
+            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer border-2 border-emerald-400 active:scale-98"
+            title="Kirim berita lengkap dengan foto warta, ringkasan teks, dan tautan resmi langsung ke WhatsApp tanpa error"
+          >
+            <MessageCircle className="w-5 h-5 fill-white text-emerald-700 flex-shrink-0 animate-pulse" />
+            <span>Bagikan Langsung ke WhatsApp (Foto + Teks + Link)</span>
+            <ExternalLink className="w-4 h-4 text-emerald-200" />
+          </button>
+          <p className="text-[10px] text-emerald-800 font-mono mt-1 text-center font-bold">
+            🟢 Membuka WhatsApp langsung dengan judul, gambar, teks berita &amp; tautan sumber resmi ke Portal Arun.
+          </p>
+        </div>
+
+        {/* 2. Tombol Cadangan: Bagikan Lengkap ke Sistem (Gambar, Teks & Link) */}
         <div className="mb-4">
           <button
             type="button"

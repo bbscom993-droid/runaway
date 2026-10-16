@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, Zap, ExternalLink, Radio, Volume2 } from 'lucide-react';
+import React, { useState } from 'react';
+import { Zap, Radio } from 'lucide-react';
 import { NewsArticle, TickerSettings } from '../types';
 
 interface BreakingTickerProps {
@@ -13,133 +13,116 @@ export const BreakingTicker: React.FC<BreakingTickerProps> = ({
   onSelectArticle,
   tickerSettings,
 }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-
-  // Interval speed
-  const intervalSpeed = 
-    tickerSettings?.speed === 'slow' ? 7000 : tickerSettings?.speed === 'fast' ? 3000 : 5000;
-
-  useEffect(() => {
-    if (breakingArticles.length <= 1 || isPaused || tickerSettings?.mode === 'custom') return;
-    const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % breakingArticles.length);
-    }, intervalSpeed);
-    return () => clearInterval(timer);
-  }, [breakingArticles.length, isPaused, intervalSpeed, tickerSettings?.mode]);
 
   if (tickerSettings && !tickerSettings.isEnabled) return null;
   if (!breakingArticles || breakingArticles.length === 0) return null;
 
-  const currentArticle = breakingArticles[currentIndex] || breakingArticles[0];
-
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev - 1 + breakingArticles.length) % breakingArticles.length);
-  };
-
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentIndex((prev) => (prev + 1) % breakingArticles.length);
-  };
+  // Marquee Speed class based on tickerSettings
+  const speedClass =
+    tickerSettings?.speed === 'slow'
+      ? 'animate-marquee-slow'
+      : tickerSettings?.speed === 'fast'
+      ? 'animate-marquee-fast'
+      : 'animate-marquee';
 
   // Theme styling
   const theme = tickerSettings?.theme || 'yellow';
-  const themeClasses = 
-    theme === 'dark' 
-      ? 'bg-sky-950 text-white border-y-2 border-sky-800' 
+  const themeClasses =
+    theme === 'dark'
+      ? 'bg-sky-950 text-white border-y-2 border-sky-800'
       : theme === 'red'
       ? 'bg-red-600 text-white border-y-2 border-red-700'
-      : 'bg-yellow-100/90 text-slate-900 border-y-2 border-yellow-300/80';
+      : 'bg-yellow-100/95 text-slate-900 border-y-2 border-yellow-400';
 
   const badgeClasses =
     theme === 'dark'
-      ? 'bg-yellow-400 text-sky-950'
+      ? 'bg-yellow-400 text-sky-950 border-yellow-500'
       : theme === 'red'
-      ? 'bg-white text-red-700'
-      : 'bg-yellow-400 text-sky-950';
+      ? 'bg-white text-red-700 border-red-200'
+      : 'bg-sky-950 text-yellow-300 border-sky-900';
+
+  // Duplicate items for seamless continuous marquee loop
+  const marqueeArticles = [...breakingArticles, ...breakingArticles];
 
   return (
-    <div 
+    <div
       id="breaking-news-ticker"
-      className={`${themeClasses} shadow-2xs transition-colors`}
+      className={`${themeClasses} shadow-sm overflow-hidden select-none transition-colors relative z-20`}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      role="region"
+      aria-label="Running Text Berita Headline"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-        <div className="flex items-center justify-between gap-3">
-          
-          {/* Breaking News Label */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className={`flex items-center gap-1.5 ${badgeClasses} text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-xs border border-black/10`}>
-              <Zap className="w-3.5 h-3.5 fill-current animate-bounce" />
-              <span>{tickerSettings?.mode === 'custom' ? 'PENGUMUMAN' : 'BERITA UTAMA'}</span>
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 flex items-center gap-3">
+        {/* Running Text Headline Official Badge */}
+        <div className="flex items-center gap-2 flex-shrink-0 z-10 pr-2 border-r border-sky-950/20 dark:border-white/20">
+          <span className={`flex items-center gap-1.5 ${badgeClasses} text-[11px] sm:text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-xs border`}>
+            <Zap className="w-3.5 h-3.5 fill-current animate-bounce text-yellow-400" />
+            <span className="font-mono">
+              {tickerSettings?.mode === 'custom' ? 'PENGUMUMAN' : 'TERKINI'}
             </span>
-            <span className="hidden sm:inline-flex w-2 h-2 rounded-full bg-yellow-400 animate-ping" />
-          </div>
+          </span>
+          <span className="flex h-2.5 w-2.5 relative" title="Siaran Langsung Berita Utama">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+          </span>
+        </div>
 
-          {/* Content: Either custom message or rotating breaking articles */}
+        {/* Marquee Running Text Content */}
+        <div className="flex-1 overflow-hidden min-w-0 relative mask-linear-fade">
           {tickerSettings?.mode === 'custom' ? (
-            <div className="flex-1 overflow-hidden min-w-0">
-              <p className={`text-xs sm:text-sm font-bold truncate ${theme === 'yellow' ? 'text-sky-950' : 'text-white'}`}>
-                {tickerSettings.customMessage}
-              </p>
+            <div
+              className={`flex items-center gap-8 ${speedClass}`}
+              style={{ animationPlayState: isPaused ? 'paused' : 'running' }}
+            >
+              {[1, 2, 3].map((idx) => (
+                <div key={idx} className="flex items-center gap-4 flex-shrink-0">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <p className={`text-xs sm:text-sm font-black tracking-tight ${theme === 'yellow' ? 'text-sky-950' : 'text-white'}`}>
+                    📢 {tickerSettings.customMessage}
+                  </p>
+                </div>
+              ))}
             </div>
           ) : (
-            <div 
-              onClick={() => onSelectArticle(currentArticle)}
-              className="flex-1 cursor-pointer overflow-hidden min-w-0 group"
+            <div
+              className={`flex items-center gap-8 ${speedClass}`}
+              style={{ animationPlayState: isPaused ? 'paused' : 'running' }}
             >
-              <div className="flex items-center gap-2 truncate">
-                <span className="text-xs font-black text-sky-900 uppercase bg-white px-2 py-0.5 rounded-md border border-sky-200 flex-shrink-0 hidden md:inline-block">
-                  {currentArticle.categoryLabel}
-                </span>
-                <p className={`text-xs sm:text-sm font-bold group-hover:underline transition-colors truncate ${
-                  theme === 'yellow' ? 'text-sky-950' : 'text-white'
-                }`}>
-                  {currentArticle.title}
-                </p>
-                <span className={`text-[11px] font-mono whitespace-nowrap hidden lg:inline-block ${
-                  theme === 'yellow' ? 'text-sky-700' : 'text-sky-200'
-                }`}>
-                  • {currentArticle.publishedAt.split('•')[0]}
-                </span>
-              </div>
+              {marqueeArticles.map((art, idx) => (
+                <div
+                  key={`${art.id}-${idx}`}
+                  onClick={() => onSelectArticle(art)}
+                  className="flex items-center gap-2.5 flex-shrink-0 cursor-pointer group"
+                  title={`Klik untuk membaca warta: ${art.title}`}
+                >
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-sky-950 text-yellow-300 font-mono border border-sky-800 shadow-2xs group-hover:scale-105 transition-transform">
+                    {art.categoryLabel || 'Headline'}
+                  </span>
+                  <p className={`text-xs sm:text-sm font-bold group-hover:underline transition-colors flex items-center gap-1.5 ${
+                    theme === 'yellow' ? 'text-sky-950' : 'text-white'
+                  }`}>
+                    <span>{art.title}</span>
+                  </p>
+                  <span className="text-[10px] opacity-75 font-mono">
+                    ({art.publishedAt.split('•')[0].trim()})
+                  </span>
+                  <span className="text-yellow-600 font-bold ml-3 text-xs select-none">
+                    ✦
+                  </span>
+                </div>
+              ))}
             </div>
           )}
+        </div>
 
-          {/* Next / Prev Controls (if auto mode) */}
-          {tickerSettings?.mode !== 'custom' && (
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <span className={`text-[11px] font-mono font-bold hidden sm:inline mr-1 ${
-                theme === 'yellow' ? 'text-sky-800' : 'text-sky-200'
-              }`}>
-                {currentIndex + 1}/{breakingArticles.length}
-              </span>
-              <button
-                onClick={handlePrev}
-                className={`p-1 rounded-lg transition-colors ${
-                  theme === 'yellow' ? 'text-sky-900 hover:bg-yellow-300/80' : 'text-white hover:bg-white/20'
-                }`}
-                aria-label="Sebelumnya"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={handleNext}
-                className={`p-1 rounded-lg transition-colors ${
-                  theme === 'yellow' ? 'text-sky-900 hover:bg-yellow-300/80' : 'text-white hover:bg-white/20'
-                }`}
-                aria-label="Berikutnya"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          )}
-
+        {/* Live Indicator Icon */}
+        <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0 text-[10px] font-mono font-bold opacity-80 pl-2 border-l border-sky-950/20">
+          <Radio className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
+          <span>LIVE UPDATE</span>
         </div>
       </div>
     </div>
   );
 };
-

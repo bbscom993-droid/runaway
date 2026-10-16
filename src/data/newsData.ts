@@ -13,7 +13,7 @@ export const CATEGORIES: Category[] = [
   { id: 'akpersi', name: 'Akpersi', slug: 'akpersi', iconName: 'GraduationCap', description: 'Informasi dan warta seputar Asosiasi Akademisi & Praktisi Pers Indonesia' },
   { id: 'laporan warga', name: 'Lapor Warga', slug: 'laporan-warga', iconName: 'MessageSquare', description: 'Aduan dan laporan langsung dari masyarakat' },
   { id: 'box redaksi', name: 'Box Redaksi', slug: 'box-redaksi', iconName: 'Mail', description: 'Informasi resmi dari dewan redaksi, tim jurnalis, dan kebijakan media' },
-  { id: 'legalitas', name: 'Legalitas', slug: 'legalitas', iconName: 'FileCheck', description: 'Dokumen hukum dan pedoman penyelenggaraan ARUN NEWS.' },
+  { id: 'legalitas', name: 'Legalitas', slug: 'legalitas', iconName: 'FileCheck', description: 'Legalitas resmi pers, SK Kemenkumham, NIB OSS, NPWP, PPMS Dewan Pers, KEJ, dan Hak Jawab' },
   { id: 'transportasi', name: 'Transportasi', slug: 'transportasi', iconName: 'Train', description: 'Perkembangan rute, tol, dan angkutan publik' },
 ];
 
@@ -777,7 +777,7 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   moduleToggles: {
     showWeather: true,
     showTrending: true,
-    showTicker: true,
+    showTicker: false,
     showSpotlightHero: true,
     showTrendingGrid: true,
     showEditorPick: true,
@@ -795,7 +795,7 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
 };
 
 export const INITIAL_TICKER_SETTINGS: TickerSettings = {
-  isEnabled: true,
+  isEnabled: false,
   mode: 'auto',
   customMessage: '🔴 ARUN NEWS EKSKLUSIF: Ikuti pembaruan berita terkini secara real-time dari seluruh koresponden nusantara.',
   speed: 'normal',

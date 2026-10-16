@@ -982,7 +982,8 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
 
   const getArticleShareText = () => {
     if (!article) return 'Arun News - Jembatan Informasi Nusantara';
-    return `Baca berita: "${article.title}" di Arun News - Jembatan Informasi Nusantara`;
+    const excerpt = article.excerpt || (article.paragraphs && article.paragraphs[0]) || '';
+    return `📰 *${article.title}*\n\n${excerpt}\n\n👉 *Buka Langsung Warta di Portal Arun News:*\n`;
   };
 
   const handleTrackShare = (platform: string) => {

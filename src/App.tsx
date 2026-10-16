@@ -386,6 +386,9 @@ export default function App() {
         if (!parsed.portalThemeSettings) {
           parsed.portalThemeSettings = DEFAULT_PORTAL_THEME;
         }
+        if (parsed.moduleToggles) {
+          parsed.moduleToggles.showTicker = false;
+        }
         return parsed;
       } catch (e) {
         return INITIAL_SITE_SETTINGS;
@@ -403,7 +406,7 @@ export default function App() {
     return INITIAL_TRANSPORT_SCHEDULES;
   });
 
-  // Ticker Settings
+  // Ticker Settings (Running text berita headline dinonaktifkan sesuai permintaan)
   const [tickerSettings, setTickerSettings] = useState<TickerSettings>(() => {
     const saved = localStorage.getItem('wartakini_ticker_settings');
     if (saved) {
@@ -412,12 +415,12 @@ export default function App() {
         if (parsed.customMessage && parsed.customMessage.includes('WARTAKINI')) {
           parsed.customMessage = parsed.customMessage.replace(/WARTAKINI/g, 'ARUN NEWS');
         }
-        return parsed;
+        return { ...parsed, isEnabled: false };
       } catch (e) {
-        return INITIAL_TICKER_SETTINGS;
+        return { ...INITIAL_TICKER_SETTINGS, isEnabled: false };
       }
     }
-    return INITIAL_TICKER_SETTINGS;
+    return { ...INITIAL_TICKER_SETTINGS, isEnabled: false };
   });
 
   // Saved Bookmarks
@@ -712,7 +715,7 @@ export default function App() {
     const cleanTarget = target.trim().replace(/^\/+|\/+$/g, '');
     const cleanLower = cleanTarget.toLowerCase();
 
-    // 1. Check local articles state first
+    // 1. Check local articles state first (exact match, slug match, or partial slug)
     const found = articles.find((a) => {
       const aId = (a.id || '').toLowerCase();
       const aSlug = (a.slug || '').toLowerCase();
@@ -720,7 +723,9 @@ export default function App() {
         aId === cleanLower ||
         aSlug === cleanLower ||
         aId.replace('art-', '') === cleanLower.replace('art-', '') ||
-        aSlug.replace(/\.html?$/i, '') === cleanLower.replace(/\.html?$/i, '')
+        aSlug.replace(/\.html?$/i, '') === cleanLower.replace(/\.html?$/i, '') ||
+        (cleanLower.length > 5 && aSlug.includes(cleanLower)) ||
+        (cleanLower.length > 5 && cleanLower.includes(aSlug))
       );
     });
 
@@ -728,6 +733,7 @@ export default function App() {
       setSelectedArticleForModal(found);
       setArticleNotFoundSlug(null);
       setIsResolvingArticleUrl(false);
+      showToast(`📰 Membuka warta dari tautan WhatsApp: "${found.title}"`);
       return;
     }
 
@@ -743,6 +749,7 @@ export default function App() {
           setSelectedArticleForModal(dbArt);
           setArticleNotFoundSlug(null);
           setIsResolvingArticleUrl(false);
+          showToast(`📰 Membuka warta dari tautan sumber: "${dbArt.title}"`);
         } else {
           // Fallback to /api/db/articles
           fetch('/api/db/articles')
@@ -755,7 +762,8 @@ export default function App() {
                   return (
                     aId === cleanLower ||
                     aSlug === cleanLower ||
-                    aId.replace('art-', '') === cleanLower.replace('art-', '')
+                    aId.replace('art-', '') === cleanLower.replace('art-', '') ||
+                    (cleanLower.length > 5 && aSlug.includes(cleanLower))
                   );
                 });
                 if (apiFound) {
@@ -763,14 +771,34 @@ export default function App() {
                   setSelectedArticleForModal(apiFound);
                   setArticleNotFoundSlug(null);
                   setIsResolvingArticleUrl(false);
+                  showToast(`📰 Membuka warta dari tautan sumber: "${apiFound.title}"`);
                   return;
                 }
               }
-              // If not found anywhere, show user-friendly 404 message modal
+              // If not found anywhere, fallback to headline article if available instead of 404
+              if (articles.length > 0) {
+                const fallbackArt = articles.find((a) => a.isHeadline || a.isBreaking) || articles[0];
+                if (fallbackArt) {
+                  setSelectedArticleForModal(fallbackArt);
+                  setIsResolvingArticleUrl(false);
+                  setArticleNotFoundSlug(null);
+                  showToast(`📰 Menampilkan warta utama: "${fallbackArt.title}"`);
+                  return;
+                }
+              }
               setIsResolvingArticleUrl(false);
               setArticleNotFoundSlug(cleanTarget);
             })
             .catch(() => {
+              if (articles.length > 0) {
+                const fallbackArt = articles.find((a) => a.isHeadline || a.isBreaking) || articles[0];
+                if (fallbackArt) {
+                  setSelectedArticleForModal(fallbackArt);
+                  setIsResolvingArticleUrl(false);
+                  setArticleNotFoundSlug(null);
+                  return;
+                }
+              }
               setIsResolvingArticleUrl(false);
               setArticleNotFoundSlug(cleanTarget);
             });
@@ -1066,9 +1094,11 @@ export default function App() {
     showToast('⚡ Warta Breaking simulasi diterbitkan! Cek notifikasi peramban Anda.');
   };
 
-  // Breaking news items
+  // Running Text Berita Headline & Breaking News items
   const breakingArticles = useMemo(() => {
-    return articles.filter((a) => a.isBreaking || a.isHeadline);
+    const filtered = articles.filter((a) => a.isBreaking || a.isHeadline);
+    if (filtered.length >= 3) return filtered;
+    return articles.slice(0, 6);
   }, [articles]);
 
   // Main featured article & top stories
