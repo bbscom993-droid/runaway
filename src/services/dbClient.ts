@@ -229,11 +229,21 @@ export function sanitizeForFirestore(obj: any): any {
 }
 
 export async function saveArticleToDB(article: NewsArticle): Promise<boolean> {
+  const cleaned = sanitizeForFirestore({
+    ...article,
+    updatedAt: new Date().toISOString(),
+  });
+
+  // Sync to server-side endpoint so it is universally available across all devices and crawlers
   try {
-    const cleaned = sanitizeForFirestore({
-      ...article,
-      updatedAt: new Date().toISOString(),
-    });
+    fetch('/api/db/articles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cleaned),
+    }).catch(() => {});
+  } catch {}
+
+  try {
     await setDoc(doc(db, 'articles', article.id), cleaned, { merge: true });
     return true;
   } catch (err) {
@@ -243,6 +253,10 @@ export async function saveArticleToDB(article: NewsArticle): Promise<boolean> {
 }
 
 export async function deleteArticleFromDB(id: string): Promise<boolean> {
+  try {
+    fetch(`/api/db/articles/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+  } catch {}
+
   try {
     await deleteDoc(doc(db, 'articles', id));
     return true;

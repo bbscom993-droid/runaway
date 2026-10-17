@@ -321,7 +321,7 @@ export const SocialShareGroup: React.FC<SocialShareProps> = ({ article, variant 
     >
       {/* WhatsApp */}
       <a
-        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`${shareText}\n\n${shareUrl}`)}`}
+        href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`}
         target="_blank"
         rel="noopener noreferrer"
         onClick={(e) => e.stopPropagation()}

@@ -387,7 +387,7 @@ export default function App() {
           parsed.portalThemeSettings = DEFAULT_PORTAL_THEME;
         }
         if (parsed.moduleToggles) {
-          parsed.moduleToggles.showTicker = false;
+          parsed.moduleToggles.showTicker = true;
         }
         return parsed;
       } catch (e) {
@@ -739,6 +739,85 @@ export default function App() {
 
     // 2. If not found in current loaded articles, load from Firestore DB & Cloud SQL
     setIsResolvingArticleUrl(true);
+
+    const tryServerDbFallback = () => {
+      fetch('/api/db/articles')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.success && Array.isArray(data.articles)) {
+            const apiFound = data.articles.find((a: NewsArticle) => {
+              const aId = (a.id || '').toLowerCase();
+              const aSlug = (a.slug || '').toLowerCase();
+              return (
+                aId === cleanLower ||
+                aSlug === cleanLower ||
+                aId.replace('art-', '') === cleanLower.replace('art-', '') ||
+                (cleanLower.length > 5 && aSlug.includes(cleanLower)) ||
+                (cleanLower.length > 5 && cleanLower.includes(aSlug))
+              );
+            });
+            if (apiFound) {
+              setArticles((prev) => [apiFound, ...prev.filter((p) => p.id !== apiFound.id)]);
+              setSelectedArticleForModal(apiFound);
+              setArticleNotFoundSlug(null);
+              setIsResolvingArticleUrl(false);
+              showToast(`📰 Membuka warta dari tautan sumber: "${apiFound.title}"`);
+              return;
+            }
+          }
+
+          // Check static INITIAL_ARTICLES as definitive safety net
+          const staticFound = INITIAL_ARTICLES.find((a) => {
+            const aId = (a.id || '').toLowerCase();
+            const aSlug = (a.slug || '').toLowerCase();
+            return (
+              aId === cleanLower ||
+              aSlug === cleanLower ||
+              aId.replace('art-', '') === cleanLower.replace('art-', '') ||
+              (cleanLower.length > 5 && aSlug.includes(cleanLower)) ||
+              (cleanLower.length > 5 && cleanLower.includes(aSlug))
+            );
+          });
+
+          if (staticFound) {
+            setSelectedArticleForModal(staticFound);
+            setArticleNotFoundSlug(null);
+            setIsResolvingArticleUrl(false);
+            showToast(`📰 Membuka warta: "${staticFound.title}"`);
+            return;
+          }
+
+          // Fallback to headline article if available instead of 404
+          const fallbackArt = articles.find((a) => a.isHeadline || a.isBreaking) || INITIAL_ARTICLES[0];
+          if (fallbackArt) {
+            setSelectedArticleForModal(fallbackArt);
+            setIsResolvingArticleUrl(false);
+            setArticleNotFoundSlug(null);
+            showToast(`📰 Menampilkan warta utama: "${fallbackArt.title}"`);
+            return;
+          }
+
+          setIsResolvingArticleUrl(false);
+          setArticleNotFoundSlug(cleanTarget);
+        })
+        .catch(() => {
+          const staticFound = INITIAL_ARTICLES.find((a) => {
+            const aId = (a.id || '').toLowerCase();
+            const aSlug = (a.slug || '').toLowerCase();
+            return aId === cleanLower || aSlug === cleanLower || (cleanLower.length > 5 && aSlug.includes(cleanLower));
+          }) || INITIAL_ARTICLES[0];
+          if (staticFound) {
+            setSelectedArticleForModal(staticFound);
+            setArticleNotFoundSlug(null);
+            setIsResolvingArticleUrl(false);
+            showToast(`📰 Menampilkan warta: "${staticFound.title}"`);
+            return;
+          }
+          setIsResolvingArticleUrl(false);
+          setArticleNotFoundSlug(cleanTarget);
+        });
+    };
+
     fetchArticleByIdFromDB(cleanTarget)
       .then((dbArt) => {
         if (dbArt) {
@@ -751,63 +830,12 @@ export default function App() {
           setIsResolvingArticleUrl(false);
           showToast(`📰 Membuka warta dari tautan sumber: "${dbArt.title}"`);
         } else {
-          // Fallback to /api/db/articles
-          fetch('/api/db/articles')
-            .then((res) => res.json())
-            .then((data) => {
-              if (data && data.success && Array.isArray(data.articles)) {
-                const apiFound = data.articles.find((a: NewsArticle) => {
-                  const aId = (a.id || '').toLowerCase();
-                  const aSlug = (a.slug || '').toLowerCase();
-                  return (
-                    aId === cleanLower ||
-                    aSlug === cleanLower ||
-                    aId.replace('art-', '') === cleanLower.replace('art-', '') ||
-                    (cleanLower.length > 5 && aSlug.includes(cleanLower))
-                  );
-                });
-                if (apiFound) {
-                  setArticles((prev) => [apiFound, ...prev.filter((p) => p.id !== apiFound.id)]);
-                  setSelectedArticleForModal(apiFound);
-                  setArticleNotFoundSlug(null);
-                  setIsResolvingArticleUrl(false);
-                  showToast(`📰 Membuka warta dari tautan sumber: "${apiFound.title}"`);
-                  return;
-                }
-              }
-              // If not found anywhere, fallback to headline article if available instead of 404
-              if (articles.length > 0) {
-                const fallbackArt = articles.find((a) => a.isHeadline || a.isBreaking) || articles[0];
-                if (fallbackArt) {
-                  setSelectedArticleForModal(fallbackArt);
-                  setIsResolvingArticleUrl(false);
-                  setArticleNotFoundSlug(null);
-                  showToast(`📰 Menampilkan warta utama: "${fallbackArt.title}"`);
-                  return;
-                }
-              }
-              setIsResolvingArticleUrl(false);
-              setArticleNotFoundSlug(cleanTarget);
-            })
-            .catch(() => {
-              if (articles.length > 0) {
-                const fallbackArt = articles.find((a) => a.isHeadline || a.isBreaking) || articles[0];
-                if (fallbackArt) {
-                  setSelectedArticleForModal(fallbackArt);
-                  setIsResolvingArticleUrl(false);
-                  setArticleNotFoundSlug(null);
-                  return;
-                }
-              }
-              setIsResolvingArticleUrl(false);
-              setArticleNotFoundSlug(cleanTarget);
-            });
+          tryServerDbFallback();
         }
       })
       .catch((err) => {
-        console.warn('Gagal memuat artikel dari database:', err);
-        setIsResolvingArticleUrl(false);
-        setArticleNotFoundSlug(cleanTarget);
+        console.warn('Firestore fetch failed, attempting server database fallback:', err);
+        tryServerDbFallback();
       });
   }, [currentHash, currentPath, articles]);
 
@@ -1328,15 +1356,7 @@ export default function App() {
         onNavigateToEditorial={navigateToEditorial}
       />
 
-      {/* 2.1 IKLAN PERMANEN HEADER PORTAL (Permanent Billboard Banner Ad) */}
-      <PermanentHeaderAd
-        slot={topBillboardSlot}
-        siteSettings={siteSettings}
-        onOpenAdvertisingModal={() => setIsAdvertisingModalOpen(true)}
-        onTrackClick={handleTrackAdClick}
-      />
-
-      {/* 3. Breaking News Ticker */}
+      {/* 2.1 Berita Berjalan Utama (Langsung di Bawah Navigasi Kategori Portal) */}
       {siteSettings.moduleToggles.showTicker && tickerSettings.isEnabled && (
         <BreakingTicker
           breakingArticles={breakingArticles}
@@ -1344,6 +1364,14 @@ export default function App() {
           tickerSettings={tickerSettings}
         />
       )}
+
+      {/* 2.2 IKLAN PERMANEN HEADER PORTAL (Permanent Billboard Banner Ad) */}
+      <PermanentHeaderAd
+        slot={topBillboardSlot}
+        siteSettings={siteSettings}
+        onOpenAdvertisingModal={() => setIsAdvertisingModalOpen(true)}
+        onTrackClick={handleTrackAdClick}
+      />
 
       {/* 4. Portal Body Content: Main News Feed */}
       <main className="flex-1 max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-3.5 sm:py-6 pb-24 lg:pb-8 w-full">
@@ -1388,41 +1416,90 @@ export default function App() {
 
         {/* Render Dedicated Legalitas Hub when Legalitas category is selected */}
         {selectedCategory === 'legalitas' && (
-          <LegalitasHub onOpenCyberMediaGuidelinesModal={handleOpenCyberMediaGuidelines} />
+          <div className="space-y-4 mb-6">
+            <div className="rounded-xl overflow-hidden shadow-sm">
+              <BreakingTicker
+                breakingArticles={
+                  articles.filter((a) => a.category === 'legalitas').length > 0
+                    ? articles.filter((a) => a.category === 'legalitas')
+                    : articles.slice(0, 5)
+                }
+                onSelectArticle={handleSelectArticle}
+                tickerSettings={tickerSettings}
+                badgeLabel="KILAS LEGALITAS PERS"
+                isCategoryTicker={true}
+              />
+            </div>
+            <LegalitasHub onOpenCyberMediaGuidelinesModal={handleOpenCyberMediaGuidelines} />
+          </div>
         )}
 
         {/* Render Dedicated Transport Schedule Section when Transportasi category is selected */}
         {selectedCategory === 'transportasi' && (
-          <TransportScheduleSection schedules={transportSchedules} />
+          <div className="space-y-4 mb-6">
+            <div className="rounded-xl overflow-hidden shadow-sm">
+              <BreakingTicker
+                breakingArticles={
+                  articles.filter((a) => a.category === 'transportasi').length > 0
+                    ? articles.filter((a) => a.category === 'transportasi')
+                    : articles.slice(0, 5)
+                }
+                onSelectArticle={handleSelectArticle}
+                tickerSettings={tickerSettings}
+                badgeLabel="KILAS TRANSPORTASI"
+                isCategoryTicker={true}
+              />
+            </div>
+            <TransportScheduleSection schedules={transportSchedules} />
+          </div>
         )}
 
         {/* Search or Category Filter Active Header Banner */}
         {(searchQuery || (selectedCategory !== 'all' && selectedCategory !== 'legalitas' && selectedCategory !== 'transportasi')) && (
-          <div className="bg-white rounded-2xl p-5 border border-sky-200 shadow-xs mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="bg-yellow-400 text-sky-950 font-black text-xs px-2.5 py-0.5 rounded-md border border-yellow-500 uppercase tracking-wider">
-                  {selectedCategory !== 'all' ? currentCategoryObj.name : 'Hasil Pencarian'}
-                </span>
-                <span className="text-xs text-sky-700 font-mono">
-                  Ditemukan {filteredArticles.length} warta terkait
-                </span>
+          <div className="space-y-3 mb-6">
+            <div className="bg-white rounded-2xl p-5 border border-sky-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="bg-yellow-400 text-sky-950 font-black text-xs px-2.5 py-0.5 rounded-md border border-yellow-500 uppercase tracking-wider">
+                    {selectedCategory !== 'all' ? currentCategoryObj.name : 'Hasil Pencarian'}
+                  </span>
+                  <span className="text-xs text-sky-700 font-mono">
+                    Ditemukan {filteredArticles.length} warta terkait
+                  </span>
+                </div>
+                <h2 className="text-lg sm:text-xl font-black text-sky-950">
+                  {searchQuery ? `Pencarian: "${searchQuery}"` : currentCategoryObj.description}
+                </h2>
               </div>
-              <h2 className="text-lg sm:text-xl font-black text-sky-950">
-                {searchQuery ? `Pencarian: "${searchQuery}"` : currentCategoryObj.description}
-              </h2>
+
+              <button
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setSearchQuery('');
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-950 text-xs font-black transition-colors self-start sm:self-auto uppercase tracking-wider border border-sky-300 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+                Reset Filter
+              </button>
             </div>
 
-            <button
-              onClick={() => {
-                setSelectedCategory('all');
-                setSearchQuery('');
-              }}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-sky-100 hover:bg-sky-200 text-sky-950 text-xs font-black transition-colors self-start sm:self-auto uppercase tracking-wider border border-sky-300"
-            >
-              <X className="w-4 h-4" />
-              Reset Filter
-            </button>
+            {/* Berita yang Berjalan Khusus di Bawah Halaman Kategori */}
+            {selectedCategory !== 'all' && (
+              <div className="rounded-xl overflow-hidden shadow-sm">
+                <BreakingTicker
+                  breakingArticles={
+                    filteredArticles.length > 0
+                      ? filteredArticles
+                      : articles.slice(0, 5)
+                  }
+                  onSelectArticle={handleSelectArticle}
+                  tickerSettings={tickerSettings}
+                  badgeLabel={`KILAS ${currentCategoryObj.name.toUpperCase()}`}
+                  isCategoryTicker={true}
+                />
+              </div>
+            )}
           </div>
         )}
 

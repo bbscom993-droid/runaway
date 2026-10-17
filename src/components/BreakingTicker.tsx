@@ -6,16 +6,23 @@ interface BreakingTickerProps {
   breakingArticles: NewsArticle[];
   onSelectArticle: (article: NewsArticle) => void;
   tickerSettings?: TickerSettings;
+  badgeLabel?: string;
+  className?: string;
+  isCategoryTicker?: boolean;
 }
 
 export const BreakingTicker: React.FC<BreakingTickerProps> = ({
   breakingArticles,
   onSelectArticle,
   tickerSettings,
+  badgeLabel,
+  className = '',
+  isCategoryTicker = false,
 }) => {
   const [isPaused, setIsPaused] = useState(false);
 
-  if (tickerSettings && !tickerSettings.isEnabled) return null;
+  // If regular global ticker and disabled, do not render; category ticker always renders when articles available
+  if (!isCategoryTicker && tickerSettings && !tickerSettings.isEnabled) return null;
   if (!breakingArticles || breakingArticles.length === 0) return null;
 
   // Marquee Speed class based on tickerSettings
@@ -27,40 +34,42 @@ export const BreakingTicker: React.FC<BreakingTickerProps> = ({
       : 'animate-marquee';
 
   // Theme styling
-  const theme = tickerSettings?.theme || 'yellow';
-  const themeClasses =
-    theme === 'dark'
-      ? 'bg-sky-950 text-white border-y-2 border-sky-800'
-      : theme === 'red'
-      ? 'bg-red-600 text-white border-y-2 border-red-700'
-      : 'bg-yellow-100/95 text-slate-900 border-y-2 border-yellow-400';
+  const theme = isCategoryTicker ? 'dark' : (tickerSettings?.theme || 'yellow');
+  const themeClasses = isCategoryTicker
+    ? 'bg-sky-950 text-white border-2 border-yellow-400/80 rounded-2xl shadow-md'
+    : theme === 'dark'
+    ? 'bg-sky-950 text-white border-y-2 border-sky-800'
+    : theme === 'red'
+    ? 'bg-red-600 text-white border-y-2 border-red-700'
+    : 'bg-yellow-100/95 text-slate-900 border-y-2 border-yellow-400';
 
-  const badgeClasses =
-    theme === 'dark'
-      ? 'bg-yellow-400 text-sky-950 border-yellow-500'
-      : theme === 'red'
-      ? 'bg-white text-red-700 border-red-200'
-      : 'bg-sky-950 text-yellow-300 border-sky-900';
+  const badgeClasses = isCategoryTicker
+    ? 'bg-yellow-400 text-sky-950 border-yellow-500 font-black'
+    : theme === 'dark'
+    ? 'bg-yellow-400 text-sky-950 border-yellow-500'
+    : theme === 'red'
+    ? 'bg-white text-red-700 border-red-200'
+    : 'bg-sky-950 text-yellow-300 border-sky-900';
 
   // Duplicate items for seamless continuous marquee loop
   const marqueeArticles = [...breakingArticles, ...breakingArticles];
 
   return (
     <div
-      id="breaking-news-ticker"
-      className={`${themeClasses} shadow-sm overflow-hidden select-none transition-colors relative z-20`}
+      id={isCategoryTicker ? 'category-running-ticker' : 'breaking-news-ticker'}
+      className={`${themeClasses} ${className} overflow-hidden select-none transition-colors relative z-20`}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       role="region"
-      aria-label="Berita Terkini"
+      aria-label={badgeLabel || "Berita Terkini"}
     >
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 flex items-center gap-3">
+      <div className={`${isCategoryTicker ? 'px-3 sm:px-4 py-2' : 'max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2'} flex items-center gap-3`}>
         {/* Ticker Headline Official Badge */}
         <div className="flex items-center gap-2 flex-shrink-0 z-10 pr-2 border-r border-sky-950/20 dark:border-white/20">
           <span className={`flex items-center gap-1.5 ${badgeClasses} text-[11px] sm:text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-xs border`}>
             <Zap className="w-3.5 h-3.5 fill-current animate-bounce text-yellow-400" />
             <span className="font-mono">
-              {tickerSettings?.mode === 'custom' ? 'PENGUMUMAN' : 'TERKINI'}
+              {badgeLabel || (tickerSettings?.mode === 'custom' ? 'PENGUMUMAN' : 'TERKINI')}
             </span>
           </span>
           <span className="flex h-2.5 w-2.5 relative" title="Siaran Langsung Berita Utama">
@@ -71,7 +80,7 @@ export const BreakingTicker: React.FC<BreakingTickerProps> = ({
 
         {/* Marquee Content */}
         <div className="flex-1 overflow-hidden min-w-0 relative mask-linear-fade">
-          {tickerSettings?.mode === 'custom' ? (
+          {tickerSettings?.mode === 'custom' && !isCategoryTicker ? (
             <div
               className={`flex items-center gap-8 ${speedClass}`}
               style={{ animationPlayState: isPaused ? 'paused' : 'running' }}

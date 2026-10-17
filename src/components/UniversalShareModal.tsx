@@ -61,7 +61,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     : `/article/${shareTarget}`;
 
   const cleanExcerpt = article.excerpt || (article.paragraphs && article.paragraphs[0]) || article.content.substring(0, 160) + '...';
-  const shareFullText = `📰 *${article.title}*\n\n${cleanExcerpt}\n\n👉 Baca warta selengkapnya di Arun News:\n${shareUrl}`;
+  const shareFullText = `📰 *${article.title}*\n\n${cleanExcerpt}\n\n👉 *Buka Berita Lengkap di Portal Arun News:*\n${shareUrl}`;
 
   const triggerFeedback = (msg: string) => {
     setShareFeedback(msg);
@@ -70,7 +70,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     }, 3500);
   };
 
-  // 1. Native Web Share with Image File, Text, & Link
+  // 1. Native Web Share with Image File, Text, & Link (Menu Share Sistem)
   const handleNativeShareFull = async () => {
     setIsSharingNative(true);
     try {
@@ -123,57 +123,30 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     }
   };
 
-  // 1b. Bagikan Langsung ke WhatsApp Tanpa Error (Gambar, Teks & Link Sumber)
-  const handleShareToWhatsApp = async () => {
+  // 1b. Bagikan Langsung ke WhatsApp Tanpa Error (Link Sumber + Ringkasan + Preview Gambar Otomatis)
+  const handleShareToWhatsApp = () => {
     setIsSharingNative(true);
     try {
-      let file: File | null = null;
-      if (article.imageUrl) {
-        try {
-          const resp = await fetch(article.imageUrl, { mode: 'cors' });
-          if (resp.ok) {
-            const blob = await resp.blob();
-            file = new File([blob], `${article.slug || 'arun-news'}.jpg`, { type: blob.type || 'image/jpeg' });
-          }
-        } catch {
-          // CORS fallback
-        }
+      const encoded = encodeURIComponent(shareFullText);
+      const isMobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+      
+      if (isMobile) {
+        // Direct WhatsApp URI intent for mobile app
+        window.location.href = `whatsapp://send?text=${encoded}`;
+        setTimeout(() => {
+          window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank', 'noopener,noreferrer');
+        }, 1200);
+      } else {
+        window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank', 'noopener,noreferrer');
       }
 
-      const nav = typeof navigator !== 'undefined' ? navigator : null;
-      if (nav && nav.canShare && file && nav.canShare({ files: [file] })) {
-        await nav.share({
-          files: [file],
-          title: article.title,
-          text: shareFullText,
-          url: shareUrl,
-        });
-        if (onTrackShare) onTrackShare('whatsapp_native_files');
-        triggerFeedback('✓ Foto warta, teks & tautan sumber berhasil dikirim ke WhatsApp!');
-        return;
-      }
-
-      if (nav && nav.share) {
-        await nav.share({
-          title: article.title,
-          text: shareFullText,
-          url: shareUrl,
-        });
-        if (onTrackShare) onTrackShare('whatsapp_native');
-        triggerFeedback('✓ Teks & tautan sumber warta berhasil dikirim ke WhatsApp!');
-        return;
-      }
-
-      // Direct WhatsApp Web / Mobile URL without error!
-      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareFullText)}`;
-      window.open(waUrl, '_blank', 'noopener,noreferrer');
       if (onTrackShare) onTrackShare('whatsapp_direct');
-      triggerFeedback('✓ Membuka WhatsApp! Judul, teks & tautan sumber siap dikirim.');
+      triggerFeedback('✓ Membuka WhatsApp! Judul warta, ringkasan & link resmi siap dikirim.');
     } catch {
       const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareFullText)}`;
       window.open(waUrl, '_blank', 'noopener,noreferrer');
     } finally {
-      setIsSharingNative(false);
+      setTimeout(() => setIsSharingNative(false), 500);
     }
   };
 
