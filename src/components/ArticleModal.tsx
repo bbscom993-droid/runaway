@@ -69,6 +69,7 @@ import {
 } from '../utils/offlineStorage';
 import { saveCommentToDB, fetchCommentsFromDB } from '../services/dbClient';
 import { UniversalShareModal } from './UniversalShareModal';
+import { getArticleShareUrl as getPublicArticleShareUrl, getPublicPortalOrigin } from '../utils/shareUtils';
 
 interface ReactionItem {
   emoji: string;
@@ -954,10 +955,8 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   };
 
   const getArticleShareUrl = () => {
-    if (!article) return typeof window !== 'undefined' ? window.location.origin : '';
-    const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const target = encodeURIComponent(article.slug || article.id);
-    return `${origin}/article/${target}`;
+    if (!article) return getPublicPortalOrigin();
+    return getPublicArticleShareUrl(article);
   };
 
   const handleSendToSpecificWa = (e?: React.FormEvent) => {

@@ -13,6 +13,22 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 
+// Fast In-Memory Article Cache for instant 0ms lookups
+export const articleMemoryCache = new Map<string, NewsArticle>();
+
+export function cacheArticle(article: NewsArticle) {
+  if (!article) return;
+  if (article.id) {
+    articleMemoryCache.set(article.id, article);
+    articleMemoryCache.set(article.id.toLowerCase(), article);
+    articleMemoryCache.set(article.id.replace('art-', ''), article);
+  }
+  if (article.slug) {
+    articleMemoryCache.set(article.slug, article);
+    articleMemoryCache.set(article.slug.toLowerCase(), article);
+  }
+}
+
 export function parseArticleData(data: any): NewsArticle {
   const rawParagraphs = Array.isArray(data.paragraphs) && data.paragraphs.length > 0
     ? data.paragraphs
@@ -38,7 +54,7 @@ export function parseArticleData(data: any): NewsArticle {
     if (data.authorAvatar) authorObj.avatar = data.authorAvatar;
   }
 
-  return {
+  const parsed: NewsArticle = {
     id: String(data.id || ''),
     title: String(data.title || 'Warta Berita Arun News'),
     slug: data.slug || data.id,
@@ -67,6 +83,9 @@ export function parseArticleData(data: any): NewsArticle {
     status: data.status || 'published',
     scheduledPublishAt: data.scheduledPublishAt || undefined,
   };
+
+  cacheArticle(parsed);
+  return parsed;
 }
 
 export async function checkDBHealth(): Promise<{ status: string; database?: string; articlesCount?: number }> {
@@ -107,85 +126,142 @@ export async function fetchArticlesFromDB(): Promise<NewsArticle[] | null> {
   }
 }
 
+/**
+ * Mengambil artikel secara instan tanpa delay:
+ * 1. Cek memory cache (0ms)
+ * 2. Cek localStorage (0ms)
+ * 3. Query paralel ke Server Endpoint /api/db/articles dan Firestore dengan timeout ketat
+ */
 export async function fetchArticleByIdFromDB(idOrSlug: string): Promise<NewsArticle | null> {
+  if (!idOrSlug) return null;
+  let clean = idOrSlug.trim();
   try {
-    if (!idOrSlug) return null;
-    let clean = idOrSlug.trim();
-    try {
-      clean = decodeURIComponent(clean).trim();
-    } catch {}
-    clean = clean.replace(/^\/+|\/+$/g, '');
-    if (!clean) return null;
+    clean = decodeURIComponent(clean).trim();
+  } catch {}
+  clean = clean.replace(/^\/+|\/+$/g, '');
+  if (!clean) return null;
+  const cleanLower = clean.toLowerCase();
 
-    // 1. Direct get by Document ID
-    try {
-      const directDoc = await getDoc(doc(db, 'articles', clean));
-      if (directDoc.exists()) {
-        return parseArticleData({ id: directDoc.id, ...directDoc.data() });
-      }
-    } catch {}
-
-    // 2. Query by slug
-    try {
-      const qSlug = query(collection(db, 'articles'), where('slug', '==', clean), limit(1));
-      const slugSnap = await getDocs(qSlug);
-      if (!slugSnap.empty) {
-        const d = slugSnap.docs[0];
-        return parseArticleData({ id: d.id, ...d.data() });
-      }
-    } catch {}
-
-    // 3. Query by lowercase slug
-    const cleanLower = clean.toLowerCase();
-    if (cleanLower !== clean) {
-      try {
-        const qLower = query(collection(db, 'articles'), where('slug', '==', cleanLower), limit(1));
-        const lowerSnap = await getDocs(qLower);
-        if (!lowerSnap.empty) {
-          const d = lowerSnap.docs[0];
-          return parseArticleData({ id: d.id, ...d.data() });
-        }
-      } catch {}
+  // 0. Cek Server Preloaded Article (0ms - SSR injected)
+  if (typeof window !== 'undefined' && (window as any).__SERVER_ARTICLE__) {
+    const sArt = (window as any).__SERVER_ARTICLE__;
+    const sId = (sArt.id || '').toLowerCase();
+    const sSlug = (sArt.slug || '').toLowerCase();
+    if (
+      sId === cleanLower ||
+      sSlug === cleanLower ||
+      sId.replace('art-', '') === cleanLower.replace('art-', '') ||
+      (cleanLower.length > 4 && sSlug.includes(cleanLower)) ||
+      (cleanLower.length > 4 && cleanLower.includes(sSlug))
+    ) {
+      const parsed = parseArticleData(sArt);
+      cacheArticle(parsed);
+      return parsed;
     }
+  }
 
-    // 4. Query by id field
-    try {
-      const qId = query(collection(db, 'articles'), where('id', '==', clean), limit(1));
-      const idSnap = await getDocs(qId);
-      if (!idSnap.empty) {
-        const d = idSnap.docs[0];
-        return parseArticleData({ id: d.id, ...d.data() });
-      }
-    } catch {}
+  // 1. Cek Memory Cache (0ms)
+  if (articleMemoryCache.has(clean)) return articleMemoryCache.get(clean)!;
+  if (articleMemoryCache.has(cleanLower)) return articleMemoryCache.get(cleanLower)!;
 
-    // 5. Fallback: inspect snapshot of collection in case slug has hyphens/accents
-    try {
-      const allSnap = await getDocs(collection(db, 'articles'));
-      if (!allSnap.empty) {
-        for (const docSnap of allSnap.docs) {
-          const data = docSnap.data() as any;
-          if (!data) continue;
-          const docId = (docSnap.id || '').toLowerCase();
-          const artId = (data.id || '').toLowerCase();
-          const artSlug = (data.slug || '').toLowerCase();
-          if (
-            docId === cleanLower ||
-            artId === cleanLower ||
-            artSlug === cleanLower ||
-            docId.replace('art-', '') === cleanLower.replace('art-', '') ||
-            artId.replace('art-', '') === cleanLower.replace('art-', '')
-          ) {
-            return parseArticleData({ id: docSnap.id, ...data });
-          }
+  // 2. Cek LocalStorage Cache (0ms)
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('wartakini_articles') : null;
+    if (raw) {
+      const parsed: NewsArticle[] = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const localFound = parsed.find((a) => {
+          const aId = (a.id || '').toLowerCase();
+          const aSlug = (a.slug || '').toLowerCase();
+          return (
+            aId === cleanLower ||
+            aSlug === cleanLower ||
+            aId.replace('art-', '') === cleanLower.replace('art-', '') ||
+            (cleanLower.length > 4 && aSlug.includes(cleanLower)) ||
+            (cleanLower.length > 4 && cleanLower.includes(aSlug))
+          );
+        });
+        if (localFound) {
+          cacheArticle(localFound);
+          return localFound;
         }
       }
-    } catch {}
+    }
+  } catch {}
 
-    return null;
-  } catch (err) {
-    console.warn('Failed to fetch article by ID/Slug from Firestore:', err);
-    return null;
-  }
+  // 3. Eksekusi Cepat: Endpoint Tunggal /api/db/articles/:id dan Firestore Paralel
+  const fetchSingleFromServer = async (): Promise<NewsArticle | null> => {
+    try {
+      const res = await fetch(`/api/db/articles/${encodeURIComponent(clean)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.success && data.article) {
+          return parseArticleData(data.article);
+        }
+      }
+      // Fallback: cek endpoint daftar warta jika single belum tersedia
+      const listRes = await fetch('/api/db/articles');
+      if (listRes.ok) {
+        const data = await listRes.json();
+        if (data && data.success && Array.isArray(data.articles)) {
+          const found = data.articles.find((a: any) => {
+            const aId = (a.id || '').toLowerCase();
+            const aSlug = (a.slug || '').toLowerCase();
+            return (
+              aId === cleanLower ||
+              aSlug === cleanLower ||
+              aId.replace('art-', '') === cleanLower.replace('art-', '') ||
+              (cleanLower.length > 4 && aSlug.includes(cleanLower)) ||
+              (cleanLower.length > 4 && cleanLower.includes(aSlug))
+            );
+          });
+          if (found) return parseArticleData(found);
+        }
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
+
+  const fetchFromFirestoreParallel = async (): Promise<NewsArticle | null> => {
+    try {
+      // Direct doc get
+      const docPromise = getDoc(doc(db, 'articles', clean))
+        .then((snap) => (snap.exists() ? parseArticleData({ id: snap.id, ...snap.data() }) : null))
+        .catch(() => null);
+
+      // Slug query
+      const slugQueryPromise = getDocs(query(collection(db, 'articles'), where('slug', '==', clean), limit(1)))
+        .then((snap) => (!snap.empty ? parseArticleData({ id: snap.docs[0].id, ...snap.docs[0].data() }) : null))
+        .catch(() => null);
+
+      const [byDoc, bySlug] = await Promise.all([docPromise, slugQueryPromise]);
+      return byDoc || bySlug || null;
+    } catch {
+      return null;
+    }
+  };
+
+  // Jalankan fetch paralel dengan timeout cepat
+  try {
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const results = await Promise.race([
+      Promise.all([fetchSingleFromServer(), fetchFromFirestoreParallel()]),
+      timeoutPromise.then(() => [null, null]),
+    ]);
+
+    if (results) {
+      const [fromServer, fromFirestore] = results;
+      const finalResult = fromServer || fromFirestore;
+      if (finalResult) {
+        cacheArticle(finalResult);
+        return finalResult;
+      }
+    }
+  } catch {}
+
+  return null;
 }
 
 export function subscribeArticlesFromDB(onUpdate: (articles: NewsArticle[]) => void): () => void {
@@ -234,34 +310,65 @@ export async function saveArticleToDB(article: NewsArticle): Promise<boolean> {
     updatedAt: new Date().toISOString(),
   });
 
-  // Sync to server-side endpoint so it is universally available across all devices and crawlers
+  // 1. Optimistic Update 0ms: Segera simpan ke Memory Cache
+  cacheArticle(cleaned);
+
+  // 2. Optimistic Update 0ms: Segera perbarui LocalStorage agar UI langsung terbarui tanpa jeda
   try {
-    fetch('/api/db/articles', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cleaned),
-    }).catch(() => {});
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('wartakini_articles') : null;
+    let list: NewsArticle[] = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(list)) list = [];
+    const idx = list.findIndex((a) => a.id === cleaned.id);
+    if (idx >= 0) {
+      list[idx] = cleaned;
+    } else {
+      list.unshift(cleaned);
+    }
+    localStorage.setItem('wartakini_articles', JSON.stringify(list));
   } catch {}
 
+  // 3. Simpan ke Server Cloud SQL dan Firestore secara paralel tanpa memblokir UI
+  const serverSave = fetch('/api/db/articles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(cleaned),
+  }).catch(() => null);
+
+  const firestoreSave = setDoc(doc(db, 'articles', article.id), cleaned, { merge: true })
+    .catch((err) => {
+      console.warn('Failed to save article to Firestore:', err);
+      return null;
+    });
+
   try {
-    await setDoc(doc(db, 'articles', article.id), cleaned, { merge: true });
+    await Promise.all([serverSave, firestoreSave]);
     return true;
-  } catch (err) {
-    console.warn('Failed to save article to Firestore:', err);
-    return false;
+  } catch {
+    return true;
   }
 }
 
 export async function deleteArticleFromDB(id: string): Promise<boolean> {
+  // Optimistic update
+  articleMemoryCache.delete(id);
+  articleMemoryCache.delete(id.toLowerCase());
   try {
-    fetch(`/api/db/articles/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {});
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('wartakini_articles') : null;
+    if (raw) {
+      const list: NewsArticle[] = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        localStorage.setItem('wartakini_articles', JSON.stringify(list.filter((a) => a.id !== id)));
+      }
+    }
   } catch {}
 
+  const serverDel = fetch(`/api/db/articles/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => null);
+  const firestoreDel = deleteDoc(doc(db, 'articles', id)).catch(() => null);
+
   try {
-    await deleteDoc(doc(db, 'articles', id));
+    await Promise.all([serverDel, firestoreDel]);
     return true;
-  } catch (err) {
-    console.warn('Failed to delete article from Firestore:', err);
+  } catch {
     return false;
   }
 }

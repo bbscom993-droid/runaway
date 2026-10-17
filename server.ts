@@ -1277,11 +1277,19 @@ TUGAS DAN INSTRUKSI:
     }
   });
 
-  // Get articles from Cloud SQL
+  // In-Memory Fast Cache for Cloud SQL / Database articles to eliminate fetch delays
+  let serverArticlesCache: { data: any[]; timestamp: number } | null = null;
+  const SERVER_CACHE_TTL = 30000;
+
+  // Get articles from Cloud SQL / Database with instant memory caching
   app.get("/api/db/articles", async (req, res) => {
     try {
+      if (serverArticlesCache && Date.now() - serverArticlesCache.timestamp < SERVER_CACHE_TTL) {
+        return res.json({ success: true, articles: serverArticlesCache.data, cached: true });
+      }
       const { getDBArticles } = await import("./src/db/repository.ts");
       const articles = await getDBArticles();
+      serverArticlesCache = { data: articles, timestamp: Date.now() };
       res.json({ success: true, articles });
     } catch (error: any) {
       console.error("Error getting DB articles:", error);
@@ -1289,9 +1297,24 @@ TUGAS DAN INSTRUKSI:
     }
   });
 
-  // Save/Update article in Cloud SQL
+  // Get single article by ID or Slug (instant 1ms lookup)
+  app.get("/api/db/articles/:id", async (req, res) => {
+    try {
+      const article = await getFullArticle(req.params.id);
+      if (article) {
+        return res.json({ success: true, article });
+      }
+      res.status(404).json({ success: false, error: "Article not found" });
+    } catch (error: any) {
+      console.error("Error getting single DB article:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  });
+
+  // Save/Update article in Cloud SQL (immediately invalidates server cache)
   app.post("/api/db/articles", async (req, res) => {
     try {
+      serverArticlesCache = null;
       const { saveDBArticle } = await import("./src/db/repository.ts");
       const article = req.body;
       if (!article || !article.id || !article.title) {
@@ -1305,9 +1328,10 @@ TUGAS DAN INSTRUKSI:
     }
   });
 
-  // Delete article from Cloud SQL
+  // Delete article from Cloud SQL (immediately invalidates server cache)
   app.delete("/api/db/articles/:id", async (req, res) => {
     try {
+      serverArticlesCache = null;
       const { deleteDBArticle } = await import("./src/db/repository.ts");
       const { id } = req.params;
       await deleteDBArticle(id);
@@ -1391,40 +1415,42 @@ TUGAS DAN INSTRUKSI:
     return `${proto}://${host}`;
   }
 
-  async function getArticleMeta(idOrSlug: string, origin: string) {
+  async function getFullArticle(idOrSlug: string): Promise<any | null> {
     let cleanId = (idOrSlug || "").trim();
     try {
       cleanId = decodeURIComponent(cleanId).trim();
     } catch {}
     cleanId = cleanId.replace(/^\/+|\/+$/g, "");
+    if (!cleanId) return null;
+    const cleanLower = cleanId.toLowerCase();
 
-    // 1. Search in INITIAL_ARTICLES
-    const staticArt = INITIAL_ARTICLES.find(
-      (a) =>
-        a.id === cleanId ||
-        a.slug === cleanId ||
-        a.id.toLowerCase() === cleanId.toLowerCase() ||
-        a.slug.toLowerCase() === cleanId.toLowerCase() ||
-        a.id.replace("art-", "") === cleanId.replace("art-", "")
-    );
-
-    if (staticArt) {
-      let img = staticArt.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&h=630&q=80";
-      if (!img.startsWith("http://") && !img.startsWith("https://")) {
-        img = `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
-      }
-      return {
-        title: staticArt.title,
-        description: staticArt.excerpt || (staticArt.paragraphs ? staticArt.paragraphs[0] : "") || "Warta Terpercaya di Arun News",
-        imageUrl: img,
-        url: `${origin}/article/${staticArt.slug || staticArt.id}`,
-        author: staticArt.author?.name || "Redaksi Arun News",
-        category: staticArt.categoryLabel || staticArt.category || "Berita",
-        type: "article",
-      };
+    // 1. Check in-memory server cache
+    if (serverArticlesCache && serverArticlesCache.data) {
+      const memFound = serverArticlesCache.data.find(
+        (a: any) =>
+          (a.id || "").toLowerCase() === cleanLower ||
+          (a.slug || "").toLowerCase() === cleanLower ||
+          (a.id || "").toLowerCase().replace("art-", "") === cleanLower.replace("art-", "")
+      );
+      if (memFound) return memFound;
     }
 
-    // 2. Search in Firestore if available
+    // 2. Check Cloud SQL
+    try {
+      const { getDBArticles } = await import("./src/db/repository.ts");
+      const dbArticles = await getDBArticles();
+      const found = dbArticles.find(
+        (a: any) =>
+          (a.id || "").toLowerCase() === cleanLower ||
+          (a.slug || "").toLowerCase() === cleanLower ||
+          (a.id || "").toLowerCase().replace("art-", "") === cleanLower.replace("art-", "")
+      );
+      if (found) return found;
+    } catch (err) {
+      console.warn("Cloud SQL getFullArticle fetch error:", err);
+    }
+
+    // 3. Check Firestore
     try {
       const cfgPath = path.resolve(process.cwd(), "firebase-applet-config.json");
       if (fs.existsSync(cfgPath)) {
@@ -1434,82 +1460,58 @@ TUGAS DAN INSTRUKSI:
         const appInstance = getApps().length === 0 ? initializeApp(cfg) : getApps()[0];
         const db = getFirestore(appInstance, cfg.firestoreDatabaseId || "(default)");
 
-        // By ID
         const docSnap = await getDoc(doc(db, "articles", cleanId));
         if (docSnap.exists()) {
-          const d = docSnap.data();
-          let img = d.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&h=630&q=80";
-          if (!img.startsWith("http://") && !img.startsWith("https://")) {
-            img = `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
-          }
-          return {
-            title: d.title || "Warta Berita Arun News",
-            description: d.excerpt || (Array.isArray(d.paragraphs) ? d.paragraphs[0] : "") || "Warta Terpercaya di Arun News",
-            imageUrl: img,
-            url: `${origin}/article/${d.slug || docSnap.id}`,
-            author: (d.author && d.author.name) || d.authorName || "Redaksi Arun News",
-            category: d.categoryLabel || d.category || "Berita",
-            type: "article",
-          };
+          return { id: docSnap.id, ...docSnap.data() };
         }
 
-        // By Slug
         const qSlug = query(collection(db, "articles"), where("slug", "==", cleanId), limit(1));
         const slugSnap = await getDocs(qSlug);
         if (!slugSnap.empty) {
-          const d = slugSnap.docs[0].data();
-          let img = d.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&h=630&q=80";
-          if (!img.startsWith("http://") && !img.startsWith("https://")) {
-            img = `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
-          }
-          return {
-            title: d.title || "Warta Berita Arun News",
-            description: d.excerpt || (Array.isArray(d.paragraphs) ? d.paragraphs[0] : "") || "Warta Terpercaya di Arun News",
-            imageUrl: img,
-            url: `${origin}/article/${d.slug || slugSnap.docs[0].id}`,
-            author: (d.author && d.author.name) || d.authorName || "Redaksi Arun News",
-            category: d.categoryLabel || d.category || "Berita",
-            type: "article",
-          };
+          return { id: slugSnap.docs[0].id, ...slugSnap.docs[0].data() };
         }
       }
     } catch (err) {
-      console.warn("Firestore SSR meta fetch error:", err);
+      console.warn("Firestore getFullArticle error:", err);
     }
 
-    // 3. Fallback to Cloud SQL if available
+    // 4. Check INITIAL_ARTICLES
+    const staticArt = INITIAL_ARTICLES.find(
+      (a: any) =>
+        (a.id || "").toLowerCase() === cleanLower ||
+        (a.slug || "").toLowerCase() === cleanLower ||
+        (a.id || "").toLowerCase().replace("art-", "") === cleanLower.replace("art-", "")
+    );
+    if (staticArt) return staticArt;
+
+    return null;
+  }
+
+  async function getArticleMeta(idOrSlug: string, origin: string) {
+    let cleanId = (idOrSlug || "").trim();
     try {
-      if (process.env.SQL_HOST) {
-        const { getDBArticles } = await import("./src/db/repository.ts");
-        const dbArticles = await getDBArticles();
-        const found = dbArticles.find(
-          (a) =>
-            a.id === cleanId ||
-            a.slug === cleanId ||
-            a.id.toLowerCase() === cleanId.toLowerCase() ||
-            a.slug.toLowerCase() === cleanId.toLowerCase()
-        );
-        if (found) {
-          let img = found.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&h=630&q=80";
-          if (!img.startsWith("http://") && !img.startsWith("https://")) {
-            img = `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
-          }
-          return {
-            title: found.title,
-            description: found.excerpt || (found.paragraphs ? found.paragraphs[0] : "") || "Warta Terpercaya di Arun News",
-            imageUrl: img,
-            url: `${origin}/article/${found.slug || found.id}`,
-            author: found.authorName || (found as any).author?.name || "Redaksi Arun News",
-            category: found.categoryLabel || found.category || "Berita",
-            type: "article",
-          };
-        }
+      cleanId = decodeURIComponent(cleanId).trim();
+    } catch {}
+    cleanId = cleanId.replace(/^\/+|\/+$/g, "");
+
+    const art = await getFullArticle(cleanId);
+    if (art) {
+      let img = art.imageUrl || "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&h=630&q=80";
+      if (!img.startsWith("http://") && !img.startsWith("https://")) {
+        img = `${origin}${img.startsWith("/") ? "" : "/"}${img}`;
       }
-    } catch (err) {
-      console.warn("Cloud SQL SSR meta fetch error:", err);
+      const rawExcerpt = art.excerpt || (Array.isArray(art.paragraphs) ? art.paragraphs[0] : "") || (art.content ? art.content.slice(0, 160) : "") || "Warta Terpercaya di Arun News";
+      return {
+        title: art.title || "Warta Berita Arun News",
+        description: rawExcerpt,
+        imageUrl: img,
+        url: `${origin}/article/${art.slug || art.id}`,
+        author: (art.author && art.author.name) || art.authorName || "Redaksi Arun News",
+        category: art.categoryLabel || art.category || "Berita",
+        type: "article",
+      };
     }
 
-    // 4. Fallback to top headline article
     const topArt = INITIAL_ARTICLES[0];
     return {
       title: topArt ? topArt.title : "Arun News - Portal Berita Terkini & Terpercaya",
@@ -1659,8 +1661,8 @@ TUGAS DAN INSTRUKSI:
     });
   }
 
-  // Helper to serve index.html with dynamic Open Graph tags
-  async function serveHtmlWithOg(req: express.Request, res: express.Response, meta: any) {
+  // Helper to serve index.html with dynamic Open Graph tags and preloaded article data
+  async function serveHtmlWithOg(req: express.Request, res: express.Response, meta: any, fullArticle?: any) {
     if (isSocialCrawler(req)) {
       return res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).send(generateOpenGraphCrawlerHtml(meta));
     }
@@ -1671,11 +1673,19 @@ TUGAS DAN INSTRUKSI:
         const indexPath = path.resolve(process.cwd(), "index.html");
         rawHtml = fs.readFileSync(indexPath, "utf-8");
         rawHtml = injectMetaIntoHtml(rawHtml, meta);
+        if (fullArticle) {
+          const safeJson = JSON.stringify(fullArticle).replace(/</g, "\\u003c");
+          rawHtml = rawHtml.replace("</head>", `<script id="initial-article-preloaded">window.__SERVER_ARTICLE__ = ${safeJson};</script></head>`);
+        }
         rawHtml = await vite.transformIndexHtml(req.originalUrl, rawHtml);
       } else {
         const distPath = path.resolve(process.cwd(), "dist", "index.html");
         rawHtml = fs.readFileSync(distPath, "utf-8");
         rawHtml = injectMetaIntoHtml(rawHtml, meta);
+        if (fullArticle) {
+          const safeJson = JSON.stringify(fullArticle).replace(/</g, "\\u003c");
+          rawHtml = rawHtml.replace("</head>", `<script id="initial-article-preloaded">window.__SERVER_ARTICLE__ = ${safeJson};</script></head>`);
+        }
       }
       res.status(200).set({ "Content-Type": "text/html; charset=utf-8" }).send(rawHtml);
     } catch (e: any) {
@@ -1709,16 +1719,19 @@ TUGAS DAN INSTRUKSI:
 
   app.get(articleRoutePatterns, async (req, res) => {
     const origin = getRequestOrigin(req);
-    const meta = await getArticleMeta(req.params.id, origin);
-    await serveHtmlWithOg(req, res, meta);
+    const targetId = req.params.id;
+    const fullArticle = await getFullArticle(targetId);
+    const meta = await getArticleMeta(targetId, origin);
+    await serveHtmlWithOg(req, res, meta, fullArticle);
   });
 
   // Base article directory roots without specific ID
   app.get(["/article", "/artikel", "/berita", "/warta", "/baca", "/news"], async (req, res) => {
     const origin = getRequestOrigin(req);
-    const target = (req.query.article as string) || (req.query.berita as string) || (req.query.id as string) || "art-1";
+    const target = (req.query.article as string) || (req.query.berita as string) || (req.query.id as string) || (req.query.slug as string) || "art-1";
+    const fullArticle = await getFullArticle(target);
     const meta = await getArticleMeta(target, origin);
-    await serveHtmlWithOg(req, res, meta);
+    await serveHtmlWithOg(req, res, meta, fullArticle);
   });
 
   // 2. Photo gallery dynamic routes (/foto/:id)
@@ -1741,8 +1754,9 @@ TUGAS DAN INSTRUKSI:
     const targetArticle = (req.query.article as string) || (req.query.berita as string) || (req.query.id as string) || (req.query.slug as string);
 
     if (targetArticle) {
+      const fullArticle = await getFullArticle(targetArticle);
       const meta = await getArticleMeta(targetArticle, origin);
-      return await serveHtmlWithOg(req, res, meta);
+      return await serveHtmlWithOg(req, res, meta, fullArticle);
     }
 
     if (isSocialCrawler(req)) {

@@ -23,12 +23,12 @@ export const DEFAULT_SOCIAL_AUTO_SHARE_SETTINGS: SocialAutoShareSettings = {
   includeExcerpt: true,
 };
 
+import { getPublicPortalOrigin } from './shareUtils';
+
 export function getArticleShareUrl(article: NewsArticle): string {
   const target = encodeURIComponent(article.slug || article.id);
-  if (typeof window !== 'undefined') {
-    return `${window.location.origin}/article/${target}`;
-  }
-  return `/article/${target}`;
+  const origin = getPublicPortalOrigin();
+  return `${origin}/article/${target}`;
 }
 
 export function formatSocialShareMessage(

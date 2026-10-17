@@ -229,23 +229,33 @@ export default function App() {
   // -------------------------------------------------------------
   // Articles
   const [articles, setArticles] = useState<NewsArticle[]>(() => {
+    let serverArt: NewsArticle | null = null;
+    if (typeof window !== 'undefined' && (window as any).__SERVER_ARTICLE__) {
+      serverArt = (window as any).__SERVER_ARTICLE__;
+    }
+
     const saved = localStorage.getItem('wartakini_articles');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Keep all saved and newly uploaded articles
-          const hasAkpersi = parsed.some(a => a.category === 'akpersi');
+          if (serverArt && !parsed.some((a: any) => a.id === serverArt!.id)) {
+            parsed.unshift(serverArt);
+          }
+          const hasAkpersi = parsed.some((a: any) => a.category === 'akpersi');
           if (!hasAkpersi) {
-            const akpersiArticles = INITIAL_ARTICLES.filter(a => a.category === 'akpersi');
+            const akpersiArticles = INITIAL_ARTICLES.filter((a) => a.category === 'akpersi');
             return [...parsed, ...akpersiArticles];
           }
           return parsed;
         }
       } catch (e) {
         console.warn('Failed to parse cached articles, using defaults:', e);
-        return INITIAL_ARTICLES;
       }
+    }
+
+    if (serverArt) {
+      return [serverArt, ...INITIAL_ARTICLES.filter((a) => a.id !== serverArt!.id)];
     }
     return INITIAL_ARTICLES;
   });
@@ -611,7 +621,12 @@ export default function App() {
   // -------------------------------------------------------------
   // ARTICLE MODAL & DEEP LINK RESOLUTION STATE
   // -------------------------------------------------------------
-  const [selectedArticleForModal, setSelectedArticleForModal] = useState<NewsArticle | null>(null);
+  const [selectedArticleForModal, setSelectedArticleForModal] = useState<NewsArticle | null>(() => {
+    if (typeof window !== 'undefined' && (window as any).__SERVER_ARTICLE__) {
+      return (window as any).__SERVER_ARTICLE__;
+    }
+    return null;
+  });
   const [articleNotFoundSlug, setArticleNotFoundSlug] = useState<string | null>(null);
   const [isResolvingArticleUrl, setIsResolvingArticleUrl] = useState<boolean>(false);
 
@@ -715,7 +730,38 @@ export default function App() {
     const cleanTarget = target.trim().replace(/^\/+|\/+$/g, '');
     const cleanLower = cleanTarget.toLowerCase();
 
-    // 1. Check local articles state first (exact match, slug match, or partial slug)
+    // 0. Avoid re-resolving if currently open modal already displays this exact article
+    if (selectedArticleForModal) {
+      const curId = (selectedArticleForModal.id || '').toLowerCase();
+      const curSlug = (selectedArticleForModal.slug || '').toLowerCase();
+      if (
+        curId === cleanLower ||
+        curSlug === cleanLower ||
+        curId.replace('art-', '') === cleanLower.replace('art-', '')
+      ) {
+        return;
+      }
+    }
+
+    // 1. Check window.__SERVER_ARTICLE__ (preloaded during SSR / server route: 0ms)
+    if (typeof window !== 'undefined' && (window as any).__SERVER_ARTICLE__) {
+      const sArt = (window as any).__SERVER_ARTICLE__;
+      const sId = (sArt.id || '').toLowerCase();
+      const sSlug = (sArt.slug || '').toLowerCase();
+      if (
+        sId === cleanLower ||
+        sSlug === cleanLower ||
+        sId.replace('art-', '') === cleanLower.replace('art-', '') ||
+        (cleanLower.length > 5 && sSlug.includes(cleanLower))
+      ) {
+        setSelectedArticleForModal(sArt);
+        setArticleNotFoundSlug(null);
+        setIsResolvingArticleUrl(false);
+        return;
+      }
+    }
+
+    // 2. Check local articles state first (exact match, slug match, or partial slug)
     const found = articles.find((a) => {
       const aId = (a.id || '').toLowerCase();
       const aSlug = (a.slug || '').toLowerCase();
@@ -733,90 +779,12 @@ export default function App() {
       setSelectedArticleForModal(found);
       setArticleNotFoundSlug(null);
       setIsResolvingArticleUrl(false);
-      showToast(`📰 Membuka warta dari tautan WhatsApp: "${found.title}"`);
+      showToast(`📰 Membuka warta dari tautan sumber: "${found.title}"`);
       return;
     }
 
-    // 2. If not found in current loaded articles, load from Firestore DB & Cloud SQL
+    // 3. Fast Parallel Fetch from Database & Cache without blocking or delay
     setIsResolvingArticleUrl(true);
-
-    const tryServerDbFallback = () => {
-      fetch('/api/db/articles')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && data.success && Array.isArray(data.articles)) {
-            const apiFound = data.articles.find((a: NewsArticle) => {
-              const aId = (a.id || '').toLowerCase();
-              const aSlug = (a.slug || '').toLowerCase();
-              return (
-                aId === cleanLower ||
-                aSlug === cleanLower ||
-                aId.replace('art-', '') === cleanLower.replace('art-', '') ||
-                (cleanLower.length > 5 && aSlug.includes(cleanLower)) ||
-                (cleanLower.length > 5 && cleanLower.includes(aSlug))
-              );
-            });
-            if (apiFound) {
-              setArticles((prev) => [apiFound, ...prev.filter((p) => p.id !== apiFound.id)]);
-              setSelectedArticleForModal(apiFound);
-              setArticleNotFoundSlug(null);
-              setIsResolvingArticleUrl(false);
-              showToast(`📰 Membuka warta dari tautan sumber: "${apiFound.title}"`);
-              return;
-            }
-          }
-
-          // Check static INITIAL_ARTICLES as definitive safety net
-          const staticFound = INITIAL_ARTICLES.find((a) => {
-            const aId = (a.id || '').toLowerCase();
-            const aSlug = (a.slug || '').toLowerCase();
-            return (
-              aId === cleanLower ||
-              aSlug === cleanLower ||
-              aId.replace('art-', '') === cleanLower.replace('art-', '') ||
-              (cleanLower.length > 5 && aSlug.includes(cleanLower)) ||
-              (cleanLower.length > 5 && cleanLower.includes(aSlug))
-            );
-          });
-
-          if (staticFound) {
-            setSelectedArticleForModal(staticFound);
-            setArticleNotFoundSlug(null);
-            setIsResolvingArticleUrl(false);
-            showToast(`📰 Membuka warta: "${staticFound.title}"`);
-            return;
-          }
-
-          // Fallback to headline article if available instead of 404
-          const fallbackArt = articles.find((a) => a.isHeadline || a.isBreaking) || INITIAL_ARTICLES[0];
-          if (fallbackArt) {
-            setSelectedArticleForModal(fallbackArt);
-            setIsResolvingArticleUrl(false);
-            setArticleNotFoundSlug(null);
-            showToast(`📰 Menampilkan warta utama: "${fallbackArt.title}"`);
-            return;
-          }
-
-          setIsResolvingArticleUrl(false);
-          setArticleNotFoundSlug(cleanTarget);
-        })
-        .catch(() => {
-          const staticFound = INITIAL_ARTICLES.find((a) => {
-            const aId = (a.id || '').toLowerCase();
-            const aSlug = (a.slug || '').toLowerCase();
-            return aId === cleanLower || aSlug === cleanLower || (cleanLower.length > 5 && aSlug.includes(cleanLower));
-          }) || INITIAL_ARTICLES[0];
-          if (staticFound) {
-            setSelectedArticleForModal(staticFound);
-            setArticleNotFoundSlug(null);
-            setIsResolvingArticleUrl(false);
-            showToast(`📰 Menampilkan warta: "${staticFound.title}"`);
-            return;
-          }
-          setIsResolvingArticleUrl(false);
-          setArticleNotFoundSlug(cleanTarget);
-        });
-    };
 
     fetchArticleByIdFromDB(cleanTarget)
       .then((dbArt) => {
@@ -829,15 +797,53 @@ export default function App() {
           setArticleNotFoundSlug(null);
           setIsResolvingArticleUrl(false);
           showToast(`📰 Membuka warta dari tautan sumber: "${dbArt.title}"`);
-        } else {
-          tryServerDbFallback();
+          return;
         }
+
+        // 4. Check static INITIAL_ARTICLES as definitive safety net
+        const staticFound = INITIAL_ARTICLES.find((a) => {
+          const aId = (a.id || '').toLowerCase();
+          const aSlug = (a.slug || '').toLowerCase();
+          return (
+            aId === cleanLower ||
+            aSlug === cleanLower ||
+            aId.replace('art-', '') === cleanLower.replace('art-', '') ||
+            (cleanLower.length > 5 && aSlug.includes(cleanLower)) ||
+            (cleanLower.length > 5 && cleanLower.includes(aSlug))
+          );
+        });
+
+        if (staticFound) {
+          setSelectedArticleForModal(staticFound);
+          setArticleNotFoundSlug(null);
+          setIsResolvingArticleUrl(false);
+          showToast(`📰 Membuka warta: "${staticFound.title}"`);
+          return;
+        }
+
+        // Penting: Jangan timpa URL atau alihkan ke warta headline lain jika warta spesifik ini tidak ditemukan!
+        // Tampilkan 404 Not Found dengan URL asli tetap utuh di browser agar pengguna tahu status tautan aslinya.
+        setIsResolvingArticleUrl(false);
+        setArticleNotFoundSlug(cleanTarget);
       })
       .catch((err) => {
-        console.warn('Firestore fetch failed, attempting server database fallback:', err);
-        tryServerDbFallback();
+        console.warn('Article link resolution error:', err);
+        const staticFound = INITIAL_ARTICLES.find((a) => {
+          const aId = (a.id || '').toLowerCase();
+          const aSlug = (a.slug || '').toLowerCase();
+          return aId === cleanLower || aSlug === cleanLower || (cleanLower.length > 5 && aSlug.includes(cleanLower));
+        });
+        if (staticFound) {
+          setSelectedArticleForModal(staticFound);
+          setArticleNotFoundSlug(null);
+          setIsResolvingArticleUrl(false);
+          showToast(`📰 Membuka warta: "${staticFound.title}"`);
+          return;
+        }
+        setIsResolvingArticleUrl(false);
+        setArticleNotFoundSlug(cleanTarget);
       });
-  }, [currentHash, currentPath, articles]);
+  }, [currentHash, currentPath]);
 
   // Automated background scheduler for scheduled publication
   // Changes status 'pending' to 'published' automatically when scheduledPublishAt <= now

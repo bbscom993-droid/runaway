@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { NewsArticle } from '../types';
+import { getArticleShareUrl, getPublicPortalOrigin } from '../utils/shareUtils';
 
 export interface UniversalShareModalProps {
   article: NewsArticle;
@@ -55,11 +56,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
 
   if (!isOpen) return null;
 
-  const shareTarget = encodeURIComponent(article.slug || article.id);
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/article/${shareTarget}`
-    : `/article/${shareTarget}`;
-
+  const shareUrl = getArticleShareUrl(article);
   const cleanExcerpt = article.excerpt || (article.paragraphs && article.paragraphs[0]) || article.content.substring(0, 160) + '...';
   const shareFullText = `📰 *${article.title}*\n\n${cleanExcerpt}\n\n👉 *Buka Berita Lengkap di Portal Arun News:*\n${shareUrl}`;
 
@@ -128,16 +125,11 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     setIsSharingNative(true);
     try {
       const encoded = encodeURIComponent(shareFullText);
-      const isMobile = typeof navigator !== 'undefined' && /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+      const waWebUrl = `https://api.whatsapp.com/send?text=${encoded}`;
       
-      if (isMobile) {
-        // Direct WhatsApp URI intent for mobile app
-        window.location.href = `whatsapp://send?text=${encoded}`;
-        setTimeout(() => {
-          window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank', 'noopener,noreferrer');
-        }, 1200);
-      } else {
-        window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank', 'noopener,noreferrer');
+      const opened = window.open(waWebUrl, '_blank', 'noopener,noreferrer');
+      if (!opened) {
+        window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
       }
 
       if (onTrackShare) onTrackShare('whatsapp_direct');
