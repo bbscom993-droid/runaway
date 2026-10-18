@@ -70,7 +70,10 @@ import {
   FolderPlus,
   Tag,
   Play,
-  Film
+  Film,
+  Landmark,
+  CreditCard,
+  Scale
 } from 'lucide-react';
 import { 
   NewsArticle, 
@@ -90,8 +93,15 @@ import {
   TransportSchedule,
   TransportMode,
   PushNotificationSettings,
-  EmergencyBroadcastLog
+  EmergencyBroadcastLog,
+  BankAccountInfo,
+  LegalitasSettings
 } from '../../types';
+import { 
+  DEFAULT_AD_BANK_ACCOUNT, 
+  DEFAULT_AD_BANK_ACCOUNTS, 
+  DEFAULT_LEGALITAS_SETTINGS 
+} from '../../data/newsData';
 import { 
   DEFAULT_PUSH_SETTINGS, 
   sendEmergencyPushNotification, 
@@ -6015,6 +6025,526 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+
+              {/* ========================================================= */}
+              {/* PENGATURAN NO REKENING PEMBAYARAN IKLAN (UNTUK YANG MAU IKLAN) */}
+              {/* ========================================================= */}
+              <div className="p-5 sm:p-6 bg-white rounded-3xl border-2 border-sky-300 shadow-md space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-yellow-400 text-sky-950 flex items-center justify-center font-black shadow-xs flex-shrink-0">
+                      <Landmark className="w-5 h-5 text-sky-950" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-sky-950 font-mono">
+                          Pengaturan No. Rekening untuk yang Mau Pasang Iklan
+                        </h3>
+                        <span className="text-[10px] font-mono font-bold text-sky-800 bg-yellow-400/30 px-2 py-0.5 rounded-md border border-yellow-500/40">
+                          Transfer Bank Iklan
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Tentukan rekening bank resmi penerimaan pembayaran iklan/sponsor yang otomatis tampil di modal calon pengiklan.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      showToast('✅ Pengaturan Rekening Pembayaran Iklan berhasil disimpan!');
+                    }}
+                    className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-sky-950 text-xs font-mono font-black rounded-xl transition-all flex items-center gap-1.5 shadow-md self-start sm:self-auto cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Simpan No Rekening</span>
+                  </button>
+                </div>
+
+                {(() => {
+                  const currentBank: BankAccountInfo = siteSettings.bankAccountForAds || DEFAULT_AD_BANK_ACCOUNT;
+
+                  const updateBankAccount = (fields: Partial<BankAccountInfo>) => {
+                    const updated = { ...currentBank, ...fields };
+                    const existingList = siteSettings.adBankAccounts && siteSettings.adBankAccounts.length > 0
+                      ? [...siteSettings.adBankAccounts]
+                      : [DEFAULT_AD_BANK_ACCOUNT];
+                    existingList[0] = updated;
+
+                    setSiteSettings({
+                      ...siteSettings,
+                      bankAccountForAds: updated,
+                      adBankAccounts: existingList
+                    });
+                  };
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                            Nama Bank:
+                          </label>
+                          <input
+                            type="text"
+                            value={currentBank.bankName}
+                            onChange={(e) => updateBankAccount({ bankName: e.target.value })}
+                            className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400"
+                            placeholder="Contoh: Bank Mandiri / BCA / BRI / BNI"
+                          />
+                          <div className="flex gap-1 mt-1.5 flex-wrap">
+                            {['Bank Mandiri', 'BCA', 'BRI', 'BNI', 'BSI'].map(b => (
+                              <button
+                                key={b}
+                                type="button"
+                                onClick={() => updateBankAccount({ bankName: b })}
+                                className="px-1.5 py-0.5 rounded bg-sky-100 hover:bg-yellow-300 text-sky-950 text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                              >
+                                {b}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                            Nomor Rekening:
+                          </label>
+                          <input
+                            type="text"
+                            value={currentBank.accountNumber}
+                            onChange={(e) => updateBankAccount({ accountNumber: e.target.value })}
+                            className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400 tracking-wider"
+                            placeholder="Contoh: 123-00-0987654-3"
+                          />
+                          <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                            Nomor rekening transaksi iklan
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                            Atas Nama (A/N Rekening):
+                          </label>
+                          <input
+                            type="text"
+                            value={currentBank.accountHolder}
+                            onChange={(e) => updateBankAccount({ accountHolder: e.target.value })}
+                            className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400 uppercase"
+                            placeholder="Contoh: PT ARUN WARTA MULTIMEDIA"
+                          />
+                          <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                            Nama pemilik / badan usaha
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                            Kantor Cabang:
+                          </label>
+                          <input
+                            type="text"
+                            value={currentBank.branch || ''}
+                            onChange={(e) => updateBankAccount({ branch: e.target.value })}
+                            className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-medium focus:ring-2 focus:ring-sky-400"
+                            placeholder="Contoh: KCP Jakarta Thamrin"
+                          />
+                          <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                            Kantor cabang pembuka rekening
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                          Petunjuk &amp; Instruksi Transfer untuk Pengiklan:
+                        </label>
+                        <input
+                          type="text"
+                          value={currentBank.instructions || ''}
+                          onChange={(e) => updateBankAccount({ instructions: e.target.value })}
+                          className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-medium focus:ring-2 focus:ring-sky-400"
+                          placeholder="Contoh: Cantumkan nama brand / perusahaan pada berita transfer. Konfirmasi bukti pembayaran via WhatsApp."
+                        />
+                      </div>
+
+                      {/* Live Card Preview */}
+                      <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-950 via-slate-900 to-sky-900 text-white border-2 border-yellow-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                        <div className="space-y-1">
+                          <span className="text-[10px] font-mono text-yellow-300 font-bold uppercase tracking-wider block">
+                            Pratinjau Nomor Rekening Iklan:
+                          </span>
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className="text-xs bg-yellow-400 text-sky-950 font-bold px-2 py-0.5 rounded font-mono">
+                              {currentBank.bankName || 'BANK'}
+                            </span>
+                            <span className="text-lg font-black font-mono tracking-wider text-white">
+                              {currentBank.accountNumber || 'Belum diisi'}
+                            </span>
+                            <span className="text-xs text-sky-200 font-mono">
+                              a.n <strong className="text-yellow-300 uppercase">{currentBank.accountHolder || '-'}</strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(currentBank.accountNumber || '');
+                              showToast('✅ Nomor rekening berhasil disalin!');
+                            }}
+                            className="px-3 py-1.5 rounded-xl bg-sky-800 hover:bg-sky-700 text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-yellow-400" />
+                            <span>Salin Rekening</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* ========================================================= */}
+              {/* PENGATURAN FIELD LEGALITAS & BADAN HUKUM PERUSAHAAN PERS   */}
+              {/* ========================================================= */}
+              <div className="p-5 sm:p-6 bg-white rounded-3xl border-2 border-sky-300 shadow-md space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-10 h-10 rounded-2xl bg-sky-950 text-yellow-400 flex items-center justify-center font-black shadow-xs flex-shrink-0">
+                      <FileCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm sm:text-base font-black uppercase tracking-tight text-sky-950 font-mono">
+                          Pengaturan Field Legalitas &amp; Badan Hukum Pers (Bisa Dirubah-rubah)
+                        </h3>
+                        <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                          UU Pers No. 40/1999
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Sesuaikan seluruh isi field legalitas resmi pers: SK Kemenkumham, NIB OSS, NPWP, Akta Notaris, KBLI, serta nama pimpinan dan penanggung jawab redaksi.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSiteSettings({
+                          ...siteSettings,
+                          legalitasSettings: DEFAULT_LEGALITAS_SETTINGS
+                        });
+                        showToast('🔄 Field legalitas telah di-reset ke standar redaksi.');
+                      }}
+                      className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono font-bold rounded-xl transition-all cursor-pointer"
+                      title="Kembalikan nilai bawaan resmi"
+                    >
+                      Reset Standar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        showToast('✅ Seluruh field legalitas perusahaan pers berhasil disimpan!');
+                      }}
+                      className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-sky-950 text-xs font-mono font-black rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Simpan Legalitas</span>
+                    </button>
+                  </div>
+                </div>
+
+                {(() => {
+                  const legal: LegalitasSettings = siteSettings.legalitasSettings || DEFAULT_LEGALITAS_SETTINGS;
+
+                  const updateLegal = (fields: Partial<LegalitasSettings>) => {
+                    const updated = { ...legal, ...fields };
+                    setSiteSettings({
+                      ...siteSettings,
+                      legalitasSettings: updated
+                    });
+                  };
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Sub-section 1: Identitas Badan Hukum & Kemenkumham */}
+                      <div className="bg-sky-50/60 p-4 rounded-2xl border border-sky-200 space-y-3">
+                        <span className="text-xs font-mono font-black text-sky-950 uppercase tracking-wider block">
+                          1. Identitas Badan Hukum &amp; Pengesahan Kemenkumham RI
+                        </span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                              Nama Badan Hukum (PT):
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.companyName}
+                              onChange={(e) => updateLegal({ companyName: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400"
+                              placeholder="PT ARUN WARTA MULTIMEDIA"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                              Bentuk / Sifat Badan Usaha:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.companyType}
+                              onChange={(e) => updateLegal({ companyType: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-sky-200 text-sky-950 font-medium focus:ring-2 focus:ring-sky-400"
+                              placeholder="Perusahaan Penerbitan Media Siber & Multimedia"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                              SK Pengesahan Kemenkumham RI:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.skKemenkumham}
+                              onChange={(e) => updateLegal({ skKemenkumham: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400"
+                              placeholder="AHU-0038291.AH.01.01.TAHUN 2024"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                              Akta Pendirian Notaris:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.deedOfEstablishment}
+                              onChange={(e) => updateLegal({ deedOfEstablishment: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-sky-200 text-sky-950 font-mono font-medium focus:ring-2 focus:ring-sky-400"
+                              placeholder="No. 18 Tanggal 12 Januari 2024"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                              Nama Notaris Pembuat Akta:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.notaryName}
+                              onChange={(e) => updateLegal({ notaryName: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-sky-200 text-sky-950 font-medium focus:ring-2 focus:ring-sky-400"
+                              placeholder="Siti Rahmawati, S.H., M.Kn."
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                              Status Verifikasi (Badge):
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.verificationStatus}
+                              onChange={(e) => updateLegal({ verificationStatus: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400 uppercase"
+                              placeholder="RESMI & TERVERIFIKASI"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sub-section 2: Perizinan OSS, NPWP & KBLI */}
+                      <div className="bg-emerald-50/60 p-4 rounded-2xl border border-emerald-200 space-y-3">
+                        <span className="text-xs font-mono font-black text-emerald-950 uppercase tracking-wider block">
+                          2. Perizinan Berusaha (OSS RBA), Pajak NPWP &amp; Bidang KBLI
+                        </span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-emerald-950 block mb-1">
+                              Nomor Induk Berusaha (NIB):
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.nib}
+                              onChange={(e) => updateLegal({ nib: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-emerald-200 text-emerald-950 font-mono font-bold focus:ring-2 focus:ring-emerald-400 tracking-wider"
+                              placeholder="2408220019842"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-emerald-950 block mb-1">
+                              NPWP Perusahaan Pers:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.npwp}
+                              onChange={(e) => updateLegal({ npwp: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-emerald-200 text-emerald-950 font-mono font-bold focus:ring-2 focus:ring-emerald-400 tracking-wider"
+                              placeholder="40.892.123.4-112.000"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-emerald-950 block mb-1">
+                              KBLI Utama:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.kbliPrimary}
+                              onChange={(e) => updateLegal({ kbliPrimary: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-emerald-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-400"
+                              placeholder="63122 - Portal Web Komersial"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-emerald-950 block mb-1">
+                              KBLI Pendukung:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.kbliSecondary}
+                              onChange={(e) => updateLegal({ kbliSecondary: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-emerald-200 text-slate-800 font-medium focus:ring-2 focus:ring-emerald-400"
+                              placeholder="58130 - Penerbitan Surat Kabar"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sub-section 3: Struktur Pimpinan & Penanggung Jawab */}
+                      <div className="bg-amber-50/60 p-4 rounded-2xl border border-amber-200 space-y-3">
+                        <span className="text-xs font-mono font-black text-amber-950 uppercase tracking-wider block">
+                          3. Struktur Penanggung Jawab Redaksi, Perusahaan &amp; Konsultan Hukum
+                        </span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-amber-950 block mb-1">
+                              Pemimpin Umum / Direktur:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.generalDirector}
+                              onChange={(e) => updateLegal({ generalDirector: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-amber-200 text-slate-900 font-bold focus:ring-2 focus:ring-amber-400"
+                              placeholder="Ahmad Zulkarnaen, S.E."
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-amber-950 block mb-1">
+                              Pemimpin Redaksi / Penanggung Jawab:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.chiefEditor}
+                              onChange={(e) => updateLegal({ chiefEditor: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-amber-200 text-slate-900 font-bold focus:ring-2 focus:ring-amber-400"
+                              placeholder="Budi Santoso, M.I.Kom."
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-amber-950 block mb-1">
+                              Sertifikasi UKW Pemred:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.chiefEditorUkw}
+                              onChange={(e) => updateLegal({ chiefEditorUkw: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-amber-200 text-slate-800 font-medium focus:ring-2 focus:ring-amber-400"
+                              placeholder="Sertifikasi UKW Utama Dewan Pers"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-amber-950 block mb-1">
+                              Konsultan Hukum Media / Advokat:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.legalCounsel}
+                              onChange={(e) => updateLegal({ legalCounsel: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-amber-200 text-slate-900 font-bold focus:ring-2 focus:ring-amber-400"
+                              placeholder="Advokat Hendra Wijaya, S.H., M.H."
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sub-section 4: Alamat Legalitas, Kontak & Catatan */}
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                        <span className="text-xs font-mono font-black text-slate-900 uppercase tracking-wider block">
+                          4. Kantor Redaksi, Dewan Pers &amp; Catatan Regulasi
+                        </span>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-slate-900 block mb-1">
+                              Nomor Terdaftar Dewan Pers:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.pressCouncilStatus}
+                              onChange={(e) => updateLegal({ pressCouncilStatus: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-slate-300 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400"
+                              placeholder="Terdaftar Dewan Pers RI No. 892/DP/K/VIII/2026"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-slate-900 block mb-1">
+                              Nomor Telepon Kantor Redaksi:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.officePhone}
+                              onChange={(e) => updateLegal({ officePhone: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-slate-300 text-slate-900 font-mono focus:ring-2 focus:ring-sky-400"
+                              placeholder="(021) 3928-1122"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-mono font-bold text-slate-900 block mb-1">
+                              Alamat Lengkap Kantor Redaksi:
+                            </label>
+                            <input
+                              type="text"
+                              value={legal.officeAddress}
+                              onChange={(e) => updateLegal({ officeAddress: e.target.value })}
+                              className="w-full p-2.5 bg-white rounded-xl border border-slate-300 text-slate-900 font-medium focus:ring-2 focus:ring-sky-400"
+                              placeholder="Gedung Pers Arun Warta Lt. 3, Jl. MH Thamrin No. 88, Jakarta Pusat"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-mono font-bold text-slate-900 block mb-1">
+                            Catatan Regulasi &amp; Penyelenggaraan Pers:
+                          </label>
+                          <input
+                            type="text"
+                            value={legal.legalNotes || ''}
+                            onChange={(e) => updateLegal({ legalNotes: e.target.value })}
+                            className="w-full p-2.5 bg-white rounded-xl border border-slate-300 text-slate-800 font-medium focus:ring-2 focus:ring-sky-400"
+                            placeholder="Penyelenggaraan media pers independen berlandaskan UU Pers No. 40 Tahun 1999 dan Pedoman Pemberitaan Media Siber."
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Data Reset */}

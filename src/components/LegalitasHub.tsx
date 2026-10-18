@@ -10,17 +10,28 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
-  FileText
+  FileText,
+  Settings as SettingsIcon,
+  Building,
+  Phone,
+  Scale
 } from 'lucide-react';
+import { LegalitasSettings } from '../types';
+import { DEFAULT_LEGALITAS_SETTINGS } from '../data/newsData';
 
 interface LegalitasHubProps {
   onOpenCyberMediaGuidelinesModal: (tab?: 'pedoman' | 'kode_etik' | 'privasi' | 'panduan_warga' | 'syarat_ketentuan' | 'disclaimer' | 'hak_cipta') => void;
+  legalitasSettings?: LegalitasSettings;
+  onOpenEditorialSettings?: () => void;
 }
 
 export const LegalitasHub: React.FC<LegalitasHubProps> = ({
-  onOpenCyberMediaGuidelinesModal
+  onOpenCyberMediaGuidelinesModal,
+  legalitasSettings,
+  onOpenEditorialSettings
 }) => {
-  const [activeAccordion, setActiveAccordion] = useState<string>('syarat_ketentuan');
+  const [activeAccordion, setActiveAccordion] = useState<string>('badan_hukum');
+  const legal = legalitasSettings || DEFAULT_LEGALITAS_SETTINGS;
 
   const toggleAccordion = (key: string) => {
     setActiveAccordion(prev => prev === key ? '' : key);
@@ -37,28 +48,44 @@ export const LegalitasHub: React.FC<LegalitasHubProps> = ({
               <FileCheck className="w-6 h-6 text-sky-950" />
             </div>
             <div>
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
                 <span className="bg-yellow-400/20 text-yellow-300 border border-yellow-400/40 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md uppercase">
                   Menu Legalitas Resmi
                 </span>
-                <span className="text-xs text-sky-300 font-mono">ARUN NEWS</span>
+                <span className="text-xs text-sky-300 font-mono">{legal.companyName || 'ARUN NEWS'}</span>
+                <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 text-[9px] font-mono font-black px-1.5 py-0.5 rounded">
+                  {legal.verificationStatus || 'RESMI & TERVERIFIKASI'}
+                </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white font-mono">
-                Legalitas
+                Legalitas &amp; Badan Hukum Pers
               </h1>
               <p className="text-xs sm:text-sm text-sky-200 font-medium mt-1">
-                Dokumen hukum dan pedoman penyelenggaraan ARUN NEWS.
+                {legal.companyName} • SK Kemenkumham RI: {legal.skKemenkumham} • NIB OSS: {legal.nib}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={() => onOpenCyberMediaGuidelinesModal('syarat_ketentuan')}
-            className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-transform active:scale-95 shadow-md self-start md:self-auto flex-shrink-0"
-          >
-            <span>Buka Seluruh Dokumen</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 flex-wrap self-start md:self-auto flex-shrink-0">
+            {onOpenEditorialSettings && (
+              <button
+                type="button"
+                onClick={onOpenEditorialSettings}
+                className="px-3.5 py-2.5 rounded-xl bg-sky-800/80 hover:bg-sky-700 text-yellow-300 border border-sky-600 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                title="Buka panel admin untuk merubah data legalitas"
+              >
+                <SettingsIcon className="w-3.5 h-3.5" />
+                <span>Pengaturan Legalitas</span>
+              </button>
+            )}
+            <button
+              onClick={() => onOpenCyberMediaGuidelinesModal('syarat_ketentuan')}
+              className="px-4 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs uppercase tracking-wider flex items-center gap-2 transition-transform active:scale-95 shadow-md cursor-pointer"
+            >
+              <span>Buka Seluruh Dokumen</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -193,11 +220,11 @@ export const LegalitasHub: React.FC<LegalitasHubProps> = ({
                       Badan Hukum &amp; Perizinan Usaha Pers (Lengkap)
                     </h3>
                     <span className="bg-yellow-400 text-sky-950 text-[10px] font-mono font-black px-2 py-0.5 rounded-md">
-                      RESMI &amp; TERVERIFIKASI
+                      {legal.verificationStatus || 'RESMI & TERVERIFIKASI'}
                     </span>
                   </div>
                   <p className="text-xs text-sky-200 font-medium">
-                    PT ARUN WARTA MULTIMEDIA • SK Kemenkumham RI, NIB OSS, NPWP &amp; Akta Notaris
+                    {legal.companyName} • SK Kemenkumham RI: {legal.skKemenkumham} • NIB: {legal.nib}
                   </p>
                 </div>
               </div>
@@ -210,21 +237,31 @@ export const LegalitasHub: React.FC<LegalitasHubProps> = ({
 
             {activeAccordion === 'badan_hukum' && (
               <div className="p-5 bg-white space-y-4 text-xs sm:text-sm text-slate-800 leading-relaxed animate-in fade-in duration-150">
-                <div className="p-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-950">
+                <div className="p-4 rounded-xl bg-sky-50 border border-sky-200 text-sky-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <p className="font-medium leading-relaxed">
-                    Portal Berita <strong>ARUN NEWS</strong> (arunnews.id) diselenggarakan dan diterbitkan oleh badan hukum pers terdaftar resmi sesuai amanat <strong>Pasal 9 ayat (2) Undang-Undang Republik Indonesia Nomor 40 Tahun 1999 tentang Pers</strong> (&ldquo;Perusahaan pers harus berbadan hukum Indonesia&rdquo;).
+                    Portal Berita <strong>ARUN NEWS</strong> diselenggarakan dan diterbitkan oleh badan hukum pers terdaftar resmi sesuai amanat <strong>Pasal 9 ayat (2) Undang-Undang Republik Indonesia Nomor 40 Tahun 1999 tentang Pers</strong> (&ldquo;Perusahaan pers harus berbadan hukum Indonesia&rdquo;).
                   </p>
+                  {onOpenEditorialSettings && (
+                    <button
+                      type="button"
+                      onClick={onOpenEditorialSettings}
+                      className="px-3 py-1.5 rounded-lg bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-mono font-bold text-xs flex items-center gap-1.5 self-start sm:self-auto flex-shrink-0 cursor-pointer shadow-xs active:scale-95"
+                    >
+                      <SettingsIcon className="w-3.5 h-3.5" />
+                      <span>Ubah Data Legalitas</span>
+                    </button>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                   <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                     <span className="text-[10px] font-mono font-bold uppercase text-sky-700 block">Identitas Badan Hukum</span>
-                    <h4 className="font-black text-sky-950 text-sm">PT ARUN WARTA MULTIMEDIA</h4>
-                    <p className="text-xs text-slate-600">Perusahaan Penerbitan Media Siber &amp; Multimedia Independen</p>
+                    <h4 className="font-black text-sky-950 text-sm">{legal.companyName}</h4>
+                    <p className="text-xs text-slate-600">{legal.companyType}</p>
                     <div className="pt-2 border-t border-slate-200 text-xs space-y-1">
-                      <div><strong>SK Pengesahan Kemenkumham RI:</strong> <span className="font-mono text-sky-900 font-bold">AHU-0038291.AH.01.01.TAHUN 2024</span></div>
-                      <div><strong>Akta Pendirian Notaris:</strong> <span className="font-mono">No. 18 Tanggal 12 Januari 2024</span></div>
-                      <div><strong>Notaris Pembuat Akta:</strong> Siti Rahmawati, S.H., M.Kn.</div>
+                      <div><strong>SK Pengesahan Kemenkumham RI:</strong> <span className="font-mono text-sky-900 font-bold">{legal.skKemenkumham}</span></div>
+                      <div><strong>Akta Pendirian Notaris:</strong> <span className="font-mono">{legal.deedOfEstablishment}</span></div>
+                      <div><strong>Notaris Pembuat Akta:</strong> <span>{legal.notaryName}</span></div>
                     </div>
                   </div>
 
@@ -232,10 +269,10 @@ export const LegalitasHub: React.FC<LegalitasHubProps> = ({
                     <span className="text-[10px] font-mono font-bold uppercase text-emerald-700 block">Perizinan Berusaha (OSS RBA)</span>
                     <h4 className="font-black text-emerald-950 text-sm">Nomor Induk Berusaha (NIB)</h4>
                     <div className="text-xs space-y-1">
-                      <div><strong>NIB:</strong> <span className="font-mono text-emerald-900 font-bold">2408220019842</span></div>
-                      <div><strong>NPWP Perusahaan:</strong> <span className="font-mono text-emerald-900 font-bold">40.892.123.4-112.000</span></div>
-                      <div><strong>KBLI Utama 63122:</strong> Portal Web dan/atau Platform Digital Komersial</div>
-                      <div><strong>KBLI Pendukung 58130:</strong> Penerbitan Surat Kabar, Majalah, &amp; Buletin</div>
+                      <div><strong>NIB:</strong> <span className="font-mono text-emerald-900 font-bold">{legal.nib}</span></div>
+                      <div><strong>NPWP Perusahaan:</strong> <span className="font-mono text-emerald-900 font-bold">{legal.npwp}</span></div>
+                      <div><strong>KBLI Utama:</strong> <span>{legal.kbliPrimary}</span></div>
+                      <div><strong>KBLI Pendukung:</strong> <span>{legal.kbliSecondary}</span></div>
                     </div>
                   </div>
                 </div>
@@ -248,23 +285,26 @@ export const LegalitasHub: React.FC<LegalitasHubProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 text-xs">
                     <div className="bg-white p-3 rounded-lg border border-amber-200">
                       <span className="text-[10px] text-slate-500 font-mono block">Pemimpin Umum / Perusahaan</span>
-                      <strong className="text-sky-950">Ahmad Zulkarnaen, S.E.</strong>
+                      <strong className="text-sky-950 block mt-0.5">{legal.generalDirector}</strong>
                     </div>
                     <div className="bg-white p-3 rounded-lg border border-amber-200">
                       <span className="text-[10px] text-slate-500 font-mono block">Pemimpin Redaksi / Penanggung Jawab</span>
-                      <strong className="text-sky-950">Budi Santoso, M.I.Kom.</strong>
-                      <span className="text-[10px] text-emerald-700 block mt-0.5">Sertifikasi UKW Utama Dewan Pers</span>
+                      <strong className="text-sky-950 block mt-0.5">{legal.chiefEditor}</strong>
+                      <span className="text-[10px] text-emerald-700 block mt-0.5">{legal.chiefEditorUkw}</span>
                     </div>
                     <div className="bg-white p-3 rounded-lg border border-amber-200">
                       <span className="text-[10px] text-slate-500 font-mono block">Konsultan Hukum Media</span>
-                      <strong className="text-sky-950">Advokat Hendra Wijaya, S.H., M.H.</strong>
+                      <strong className="text-sky-950 block mt-0.5">{legal.legalCounsel}</strong>
                     </div>
                   </div>
                 </div>
 
                 <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 text-xs text-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-mono">
                   <div>
-                    <strong>Kantor Redaksi:</strong> Gedung Pers Arun Warta Lt. 3, Jl. MH Thamrin No. 88, Jakarta Pusat • Telp: (021) 3928-1122
+                    <strong>Kantor Redaksi:</strong> {legal.officeAddress} • Telp: {legal.officePhone}
+                    {legal.pressCouncilStatus && (
+                      <span className="block text-sky-900 font-bold mt-0.5">{legal.pressCouncilStatus}</span>
+                    )}
                   </div>
                   <button
                     onClick={() => onOpenCyberMediaGuidelinesModal('pedoman')}

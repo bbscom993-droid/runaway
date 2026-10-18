@@ -13,9 +13,13 @@ import {
   ShieldCheck, 
   Layout, 
   FileText,
-  Image as ImageIcon
+  Image as ImageIcon,
+  CreditCard,
+  Landmark,
+  Wallet
 } from 'lucide-react';
 import { SiteSettings } from '../types';
+import { DEFAULT_AD_BANK_ACCOUNT, DEFAULT_AD_BANK_ACCOUNTS } from '../data/newsData';
 
 interface AdvertisingModalProps {
   isOpen: boolean;
@@ -30,6 +34,8 @@ export const AdvertisingModal: React.FC<AdvertisingModalProps> = ({
 }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState(false);
+  const [copiedAccount, setCopiedAccount] = useState<string | null>(null);
+  const [selectedBankIndex, setSelectedBankIndex] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState<string>('Banner Header');
   const [companyName, setCompanyName] = useState('');
   const [contactName, setContactName] = useState('');
@@ -37,6 +43,13 @@ export const AdvertisingModal: React.FC<AdvertisingModalProps> = ({
   const [notes, setNotes] = useState('');
 
   if (!isOpen) return null;
+
+  const rawBankList = siteSettings?.adBankAccounts && siteSettings.adBankAccounts.length > 0
+    ? siteSettings.adBankAccounts
+    : (siteSettings?.bankAccountForAds ? [siteSettings.bankAccountForAds] : DEFAULT_AD_BANK_ACCOUNTS);
+  
+  const bankAccounts = rawBankList.filter(b => b.isActive !== false);
+  const activeBank = bankAccounts[selectedBankIndex] || bankAccounts[0] || DEFAULT_AD_BANK_ACCOUNT;
 
   const advertisingEmail = siteSettings?.officialContacts?.advertisingEmail || 'iklan@arunnews.id';
   const advertisingPhone = siteSettings?.officialContacts?.hotlineWhatsapp || siteSettings?.hotlinePhone || '0895-6269-41900';
@@ -54,8 +67,14 @@ export const AdvertisingModal: React.FC<AdvertisingModalProps> = ({
     setTimeout(() => setCopiedPhone(false), 2000);
   };
 
+  const handleCopyAccount = (accNo: string) => {
+    navigator.clipboard.writeText(accNo.replace(/\s+/g, ''));
+    setCopiedAccount(accNo);
+    setTimeout(() => setCopiedAccount(null), 2500);
+  };
+
   const handleSendWA = () => {
-    const text = `Halo Redaksi Iklan ARUN NEWS, saya ingin bertanya tentang pemesanan paket iklan:\n\n- Paket: ${selectedPackage}\n- Perusahaan/Brand: ${companyName || '-'}\n- Nama Kontak: ${contactName || '-'}\n- No. HP/WA: ${contactNumber || '-'}\n- Catatan/Kebutuhan: ${notes || '-'}`;
+    const text = `Halo Redaksi Iklan ARUN NEWS, saya ingin bertanya tentang pemesanan paket iklan:\n\n- Paket: ${selectedPackage}\n- Perusahaan/Brand: ${companyName || '-'}\n- Nama Kontak: ${contactName || '-'}\n- No. HP/WA: ${contactNumber || '-'}\n- Rekening Tujuan Transfer: ${activeBank.bankName} (${activeBank.accountNumber} a.n ${activeBank.accountHolder})\n- Catatan/Kebutuhan: ${notes || '-'}`;
     const encoded = encodeURIComponent(text);
     window.open(`https://wa.me/${cleanPhone || '62895626941900'}?text=${encoded}`, '_blank');
   };
@@ -261,6 +280,118 @@ export const AdvertisingModal: React.FC<AdvertisingModalProps> = ({
                 </div>
               </div>
 
+            </div>
+          </div>
+
+          {/* Section: Rekening Bank Resmi Pembayaran Iklan */}
+          <div className="p-5 sm:p-6 rounded-3xl bg-slate-50 border-2 border-sky-300 shadow-md space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-sky-200/80 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-sky-900 text-yellow-400 font-black shadow-xs">
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-mono font-black text-sm sm:text-base text-sky-950 uppercase tracking-tight">
+                      Rekening Resmi Pembayaran Iklan
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono font-black border border-emerald-300">
+                      Terverifikasi
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Pembayaran sewa banner, advertorial, dan kemitraan resmi langsung ke rekening perusahaan pers.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bank Selector if multiple */}
+              {bankAccounts.length > 1 && (
+                <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl border border-sky-200 self-start sm:self-auto">
+                  {bankAccounts.map((b, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedBankIndex(idx)}
+                      className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                        selectedBankIndex === idx
+                          ? 'bg-sky-950 text-yellow-300 shadow-xs'
+                          : 'text-slate-600 hover:text-sky-950'
+                      }`}
+                    >
+                      {b.bankName}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Active Bank Details Card */}
+            <div className="bg-gradient-to-r from-sky-950 via-slate-900 to-sky-900 text-white rounded-2xl p-4 sm:p-5 border-2 border-yellow-400 shadow-xl relative overflow-hidden">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-yellow-300 font-bold bg-yellow-400/20 px-2 py-0.5 rounded border border-yellow-400/30">
+                      {activeBank.bankName}
+                    </span>
+                    {activeBank.branch && (
+                      <span className="text-[11px] text-sky-300 font-mono">
+                        Cabang: {activeBank.branch}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-baseline gap-3 pt-1 flex-wrap">
+                    <span className="text-xl sm:text-2xl md:text-3xl font-black font-mono tracking-wider text-white select-all">
+                      {activeBank.accountNumber}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyAccount(activeBank.accountNumber)}
+                      className="px-3 py-1 rounded-xl bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-sky-950 text-xs font-mono font-black flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                      title="Salin nomor rekening"
+                    >
+                      {copiedAccount === activeBank.accountNumber ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-950" />
+                          <span>Tersalin!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Salin No. Rek</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="pt-1 text-xs text-sky-200">
+                    <span>Atas Nama (A/N): </span>
+                    <strong className="text-yellow-300 font-mono text-sm uppercase">
+                      {activeBank.accountHolder}
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="flex sm:flex-col items-center sm:items-end justify-between w-full sm:w-auto gap-2 text-right border-t sm:border-t-0 border-sky-800/80 pt-2 sm:pt-0">
+                  <div className="text-[10px] font-mono text-sky-300">
+                    <span className="block font-bold text-white">Metode Transfer</span>
+                    <span>ATM / M-Banking / BI-FAST</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/80 border border-emerald-500/50 px-2 py-1 rounded-md">
+                    Rekening Badan Hukum Resmi
+                  </span>
+                </div>
+              </div>
+
+              {activeBank.instructions && (
+                <div className="mt-3.5 pt-3 border-t border-sky-800/80 text-[11px] text-sky-200 flex items-start gap-2">
+                  <Wallet className="w-4 h-4 text-yellow-400 flex-shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Petunjuk Pembayaran:</strong> {activeBank.instructions}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

@@ -34,10 +34,14 @@ import {
   FileText,
   Video,
   Film,
-  Play
+  Play,
+  CreditCard,
+  Landmark,
+  Wallet
 } from 'lucide-react';
-import { AdSlot, SEMSettings, SiteSettings } from '../../types';
+import { AdSlot, SEMSettings, SiteSettings, BankAccountInfo } from '../../types';
 import { DEFAULT_AD_SLOTS, DEFAULT_SEM_SETTINGS, buildUtmUrl } from '../../utils/semEngine';
+import { DEFAULT_AD_BANK_ACCOUNT, DEFAULT_AD_BANK_ACCOUNTS } from '../../data/newsData';
 import { AdClicksBarChart } from './AdClicksBarChart';
 import { generateAdPerformancePdf } from '../../utils/adPerformancePdfGenerator';
 
@@ -727,6 +731,197 @@ export const AdManagementView: React.FC<AdManagementViewProps> = ({
             <span>Simpan Informasi Kontak Divisi Iklan</span>
           </button>
         </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* 4.5 PENGATURAN NO REKENING PEMBAYARAN IKLAN              */}
+      {/* ========================================================= */}
+      <div className="bg-white rounded-3xl p-5 sm:p-6 border border-sky-200 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-sky-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-yellow-400 text-sky-950 font-black shadow-xs">
+              <Landmark className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-black uppercase tracking-tight text-sky-950 font-mono">
+                  Pengaturan Nomor Rekening Pembayaran Iklan & Sponsor
+                </h3>
+                <span className="text-[10px] font-mono font-bold text-sky-800 bg-sky-100 px-2 py-0.5 rounded-md">
+                  Transfer Bank
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                Atur nomor rekening yang otomatis ditampilkan pada formulir & modal pemasangan iklan bagi calon pengiklan.
+              </p>
+            </div>
+          </div>
+
+          <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-xl font-bold flex items-center gap-1.5 self-start sm:self-auto">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>Terhubung ke Modal Iklan</span>
+          </span>
+        </div>
+
+        {/* Bank Account Form Fields */}
+        {(() => {
+          const currentBank: BankAccountInfo = siteSettings.bankAccountForAds || DEFAULT_AD_BANK_ACCOUNT;
+
+          const updateBankAccount = (fields: Partial<BankAccountInfo>) => {
+            const updated = { ...currentBank, ...fields };
+            const existingList = siteSettings.adBankAccounts && siteSettings.adBankAccounts.length > 0
+              ? [...siteSettings.adBankAccounts]
+              : [DEFAULT_AD_BANK_ACCOUNT];
+            existingList[0] = updated;
+
+            setSiteSettings({
+              ...siteSettings,
+              bankAccountForAds: updated,
+              adBankAccounts: existingList
+            });
+          };
+
+          return (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                {/* Bank Name */}
+                <div>
+                  <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                    Nama Bank / Dompet:
+                  </label>
+                  <input
+                    type="text"
+                    value={currentBank.bankName}
+                    onChange={(e) => updateBankAccount({ bankName: e.target.value })}
+                    className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400"
+                    placeholder="Contoh: Bank Mandiri / BCA / BRI / BNI"
+                  />
+                  <div className="flex gap-1 mt-1.5 flex-wrap">
+                    {['Bank Mandiri', 'BCA', 'BRI', 'BNI', 'BSI'].map(b => (
+                      <button
+                        key={b}
+                        type="button"
+                        onClick={() => updateBankAccount({ bankName: b })}
+                        className="px-1.5 py-0.5 rounded bg-sky-100 hover:bg-yellow-300 text-sky-950 text-[10px] font-mono font-bold transition-colors cursor-pointer"
+                      >
+                        {b}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Account Number */}
+                <div>
+                  <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                    Nomor Rekening:
+                  </label>
+                  <input
+                    type="text"
+                    value={currentBank.accountNumber}
+                    onChange={(e) => updateBankAccount({ accountNumber: e.target.value })}
+                    className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400 tracking-wider"
+                    placeholder="Contoh: 123-00-0987654-3"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                    Nomor rekening resmi perusahaan pers
+                  </span>
+                </div>
+
+                {/* Account Holder */}
+                <div>
+                  <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                    Atas Nama (A/N):
+                  </label>
+                  <input
+                    type="text"
+                    value={currentBank.accountHolder}
+                    onChange={(e) => updateBankAccount({ accountHolder: e.target.value })}
+                    className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-mono font-bold focus:ring-2 focus:ring-sky-400 uppercase"
+                    placeholder="Contoh: PT ARUN WARTA MULTIMEDIA"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                    Nama badan usaha penerima dana
+                  </span>
+                </div>
+
+                {/* Branch */}
+                <div>
+                  <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                    Kantor Cabang (Opsional):
+                  </label>
+                  <input
+                    type="text"
+                    value={currentBank.branch || ''}
+                    onChange={(e) => updateBankAccount({ branch: e.target.value })}
+                    className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-medium focus:ring-2 focus:ring-sky-400"
+                    placeholder="Contoh: KCP Jakarta Thamrin"
+                  />
+                  <span className="text-[10px] text-slate-500 font-mono block mt-1">
+                    Kota / unit kantor cabang bank
+                  </span>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div>
+                <label className="text-[11px] font-mono font-bold text-sky-950 block mb-1">
+                  Petunjuk &amp; Catatan Transfer untuk Pengiklan:
+                </label>
+                <input
+                  type="text"
+                  value={currentBank.instructions || ''}
+                  onChange={(e) => updateBankAccount({ instructions: e.target.value })}
+                  className="w-full p-2.5 bg-sky-50 rounded-xl border border-sky-200 text-sky-950 font-medium focus:ring-2 focus:ring-sky-400"
+                  placeholder="Contoh: Mohon cantumkan nama brand/perusahaan pada berita transfer. Konfirmasi via WhatsApp Hotline Iklan."
+                />
+              </div>
+
+              {/* Bank Card Live Preview */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-950 via-slate-900 to-sky-900 text-white border-2 border-yellow-400 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono text-yellow-300 font-bold uppercase tracking-wider block">
+                    Pratinjau Tampilan Modal Pemasang Iklan:
+                  </span>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    <span className="text-xs bg-yellow-400 text-sky-950 font-bold px-2 py-0.5 rounded font-mono">
+                      {currentBank.bankName || 'BANK'}
+                    </span>
+                    <span className="text-lg font-black font-mono tracking-wider text-white">
+                      {currentBank.accountNumber || 'Belum diisi'}
+                    </span>
+                    <span className="text-xs text-sky-200 font-mono">
+                      a.n <strong className="text-yellow-300 uppercase">{currentBank.accountHolder || '-'}</strong>
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(currentBank.accountNumber || '');
+                      showToast('✅ Nomor rekening berhasil disalin!');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-sky-800 hover:bg-sky-700 text-white text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-yellow-400" />
+                    <span>Salin Rekening</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      showToast('✅ Data Nomor Rekening Iklan berhasil disimpan!');
+                    }}
+                    className="px-4 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-sky-950 text-xs font-mono font-black flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Simpan No Rekening</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ========================================================= */}

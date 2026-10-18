@@ -1,4 +1,4 @@
-import type { NewsArticle, Category, NewsComment } from '../types';
+import type { NewsArticle, Category, NewsComment, SiteSettings } from '../types';
 import { db } from '../lib/firebase';
 import { 
   collection, 
@@ -456,3 +456,28 @@ export async function fetchCommentsFromDB(articleId: string): Promise<NewsCommen
     return [];
   }
 }
+
+export async function saveSiteSettingsToDB(settings: SiteSettings): Promise<boolean> {
+  try {
+    const cleaned = sanitizeForFirestore(settings);
+    await setDoc(doc(db, 'site_settings', 'main'), cleaned, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn('Failed to save site settings to Firestore:', err);
+    return false;
+  }
+}
+
+export async function fetchSiteSettingsFromDB(): Promise<SiteSettings | null> {
+  try {
+    const snap = await getDoc(doc(db, 'site_settings', 'main'));
+    if (snap.exists()) {
+      return snap.data() as SiteSettings;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to fetch site settings from Firestore:', err);
+    return null;
+  }
+}
+

@@ -7,7 +7,9 @@ import {
   fetchCategoriesFromDB,
   saveCategoryToDB,
   fetchArticleByIdFromDB,
-  subscribeArticlesFromDB
+  subscribeArticlesFromDB,
+  saveSiteSettingsToDB,
+  fetchSiteSettingsFromDB
 } from './services/dbClient';
 import { 
   CATEGORIES,
@@ -23,7 +25,10 @@ import {
   INITIAL_EDITORIAL_BOARD,
   INITIAL_OFFICIAL_CONTACTS,
   DEFAULT_EDITORIAL_USERS,
-  INITIAL_TRANSPORT_SCHEDULES
+  INITIAL_TRANSPORT_SCHEDULES,
+  DEFAULT_AD_BANK_ACCOUNT,
+  DEFAULT_AD_BANK_ACCOUNTS,
+  DEFAULT_LEGALITAS_SETTINGS
 } from './data/newsData';
 import { 
   NewsArticle, 
@@ -396,6 +401,15 @@ export default function App() {
         if (!parsed.portalThemeSettings) {
           parsed.portalThemeSettings = DEFAULT_PORTAL_THEME;
         }
+        if (!parsed.bankAccountForAds) {
+          parsed.bankAccountForAds = DEFAULT_AD_BANK_ACCOUNT;
+        }
+        if (!parsed.adBankAccounts || parsed.adBankAccounts.length === 0) {
+          parsed.adBankAccounts = DEFAULT_AD_BANK_ACCOUNTS;
+        }
+        if (!parsed.legalitasSettings) {
+          parsed.legalitasSettings = DEFAULT_LEGALITAS_SETTINGS;
+        }
         if (parsed.moduleToggles) {
           parsed.moduleToggles.showTicker = true;
         }
@@ -516,6 +530,22 @@ export default function App() {
           await seedCategoriesToDB(toSeedCats);
         }
 
+        // Load & synchronize site settings with Firestore
+        try {
+          const dbSettings = await fetchSiteSettingsFromDB();
+          if (dbSettings) {
+            setSiteSettings(prev => ({
+              ...prev,
+              ...dbSettings,
+              bankAccountForAds: dbSettings.bankAccountForAds || prev.bankAccountForAds || DEFAULT_AD_BANK_ACCOUNT,
+              adBankAccounts: (dbSettings.adBankAccounts && dbSettings.adBankAccounts.length > 0) ? dbSettings.adBankAccounts : (prev.adBankAccounts || DEFAULT_AD_BANK_ACCOUNTS),
+              legalitasSettings: dbSettings.legalitasSettings || prev.legalitasSettings || DEFAULT_LEGALITAS_SETTINGS,
+            }));
+          }
+        } catch (e) {
+          console.warn('Error fetching remote site settings:', e);
+        }
+
         const dbArticles = await fetchArticlesFromDB();
 
         // Read local storage to ensure newly uploaded or modified articles are never lost
@@ -606,7 +636,10 @@ export default function App() {
   useEffect(() => { localStorage.setItem('wartakini_editorial_pieces', JSON.stringify(editorialPieces)); }, [editorialPieces]);
   useEffect(() => { localStorage.setItem('wartakini_video_news', JSON.stringify(videoNews)); }, [videoNews]);
   useEffect(() => { localStorage.setItem('wartakini_photo_stories', JSON.stringify(photoStories)); }, [photoStories]);
-  useEffect(() => { localStorage.setItem('wartakini_site_settings', JSON.stringify(siteSettings)); }, [siteSettings]);
+  useEffect(() => { 
+    localStorage.setItem('wartakini_site_settings', JSON.stringify(siteSettings)); 
+    saveSiteSettingsToDB(siteSettings).catch(() => {});
+  }, [siteSettings]);
   useEffect(() => { localStorage.setItem('wartakini_ticker_settings', JSON.stringify(tickerSettings)); }, [tickerSettings]);
   useEffect(() => { localStorage.setItem('wartakini_transport_schedules', JSON.stringify(transportSchedules)); }, [transportSchedules]);
   useEffect(() => { localStorage.setItem('wartakini_bookmarks', JSON.stringify(savedArticleIds)); }, [savedArticleIds]);
@@ -1436,7 +1469,14 @@ export default function App() {
                 isCategoryTicker={true}
               />
             </div>
-            <LegalitasHub onOpenCyberMediaGuidelinesModal={handleOpenCyberMediaGuidelines} />
+            <LegalitasHub 
+              onOpenCyberMediaGuidelinesModal={handleOpenCyberMediaGuidelines} 
+              legalitasSettings={siteSettings.legalitasSettings}
+              onOpenEditorialSettings={() => {
+                setCurrentRoute('admin');
+                window.location.hash = '#/admin';
+              }}
+            />
           </div>
         )}
 

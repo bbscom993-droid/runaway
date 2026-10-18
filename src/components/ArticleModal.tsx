@@ -83,7 +83,7 @@ interface ArticleModalProps {
   onClose: () => void;
   isSaved: boolean;
   onToggleSave: (article: NewsArticle, e: React.MouseEvent) => void;
-  fontSize: 'normal' | 'large' | 'xlarge';
+  fontSize?: 'small' | 'medium' | 'large' | 'normal' | 'xlarge';
   onSelectTag: (tag: string) => void;
   onSelectRelatedArticle: (article: NewsArticle) => void;
   allArticles: NewsArticle[];
@@ -221,9 +221,15 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   
   // Clean reading & draft mode settings
   const [viewMode, setViewMode] = useState<'portal' | 'draft'>('portal');
-  const [fontFamily, setFontFamily] = useState<'serif' | 'sans'>('sans');
-  const [localFontSize, setLocalFontSize] = useState<'normal' | 'large' | 'xlarge'>(initialFontSize);
+  const normalizeFontSize = (fs?: string): 'small' | 'medium' | 'large' => {
+    if (fs === 'small') return 'small';
+    if (fs === 'large' || fs === 'xlarge') return 'large';
+    return 'medium';
+  };
+
+  const [localFontSize, setLocalFontSize] = useState<'small' | 'medium' | 'large'>(() => normalizeFontSize(initialFontSize));
   const [lineSpacing, setLineSpacing] = useState<'normal' | 'relaxed' | 'loose'>('relaxed');
+  const [fontFamily, setFontFamily] = useState<'serif' | 'sans'>('sans');
   const [copiedDraft, setCopiedDraft] = useState(false);
 
   const isNightMode = false;
@@ -508,21 +514,21 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   }, [article]);
 
   useEffect(() => {
-    setLocalFontSize(initialFontSize);
+    setLocalFontSize(normalizeFontSize(initialFontSize));
   }, [initialFontSize]);
 
-  // Category-based related articles with high-engagement scoring
+  // Related Articles section: identifies and displays up to three articles from the same category as currently viewed article
   const relatedArticles = React.useMemo(() => {
     if (!article) return [];
     
-    // 1. Prioritize articles in the EXACT SAME CATEGORY
+    // 1. Identify articles in the EXACT SAME CATEGORY
     const sameCategory = allArticles.filter(
       (a) => a.id !== article.id && a.category === article.category
     );
 
     // Score same category articles based on shared tags, trending status, editor pick, and views
     const scoredSameCategory = sameCategory.map((a) => {
-      let score = 100; // Base high score for exact category match
+      let score = 100; // Base score for same category match
       if (a.tags && article.tags) {
         const common = a.tags.filter((t) => article.tags.includes(t));
         score += common.length * 15;
@@ -531,35 +537,13 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
       if (a.isEditorPick) score += 10;
       if (a.isTrending) score += 8;
       score += Math.min(30, Math.floor((a.views || 0) / 100));
-      return { article: a, score, isExactCategory: true };
+      return { article: a, score };
     });
 
     scoredSameCategory.sort((a, b) => b.score - a.score);
 
-    // 2. If same category has fewer than 4 articles, backfill with related categories / shared tags
-    let result = scoredSameCategory.map((item) => ({ ...item.article, isExactCategory: true }));
-    if (result.length < 4) {
-      const otherArticles = allArticles
-        .filter((a) => a.id !== article.id && a.category !== article.category)
-        .map((a) => {
-          let score = 0;
-          if (a.tags && article.tags) {
-            const common = a.tags.filter((t) => article.tags.includes(t));
-            score += common.length * 10;
-          }
-          if (a.isEditorPick) score += 5;
-          score += Math.min(20, Math.floor((a.views || 0) / 150));
-          return { article: a, score, isExactCategory: false };
-        })
-        .sort((a, b) => b.score - a.score)
-        .map((item) => ({ ...item.article, isExactCategory: false }));
-
-      result = [...result, ...otherArticles].slice(0, 4);
-    } else {
-      result = result.slice(0, 4);
-    }
-
-    return result;
+    // Displays up to three articles from the same category
+    return scoredSameCategory.slice(0, 3).map((item) => item.article);
   }, [article, allArticles]);
 
   const totalCategoryArticlesCount = React.useMemo(() => {
@@ -1057,49 +1041,30 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
   const handleNativeShare = async () => {
     if (!article) return;
     const shareUrl = getArticleShareUrl();
-    const shareText = getArticleShareText();
+    const shareText = article.excerpt || (article.paragraphs && article.paragraphs[0]) || '';
     const shareData = {
-      title: `${article.title} - Arun News`,
+      title: article.title,
       text: shareText,
       url: shareUrl,
     };
 
-    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
       try {
-        let file: File | null = null;
-        if (article.imageUrl && navigator.canShare) {
-          try {
-            const resp = await fetch(article.imageUrl, { mode: 'cors' });
-            if (resp.ok) {
-              const blob = await resp.blob();
-              file = new File([blob], `${article.slug || 'arun-news'}.jpg`, { type: blob.type || 'image/jpeg' });
-            }
-          } catch {}
-        }
-
-        if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            files: [file],
-            title: `${article.title} - Arun News`,
-            text: shareText,
-            url: shareUrl,
-          });
-          handleTrackShare('native_files');
-          return;
-        }
-
         await navigator.share(shareData);
         handleTrackShare('native');
         return;
-      } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          setIsShareModalOpen(true);
+      } catch (err: any) {
+        if (err && err.name === 'AbortError') {
+          return;
         }
-        return;
       }
-    } else {
-      setIsShareModalOpen(true);
     }
+
+    // Fallback: opens a new tab with a custom WhatsApp share URL (https://wa.me/?text=...)
+    const fallbackMessage = `${article.title}\n\n${shareText}\n\n${shareUrl}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(fallbackMessage)}`;
+    window.open(waUrl, '_blank', 'noopener,noreferrer');
+    handleTrackShare('whatsapp');
   };
 
   const handleCopyFullDraft = () => {
@@ -1315,33 +1280,33 @@ ${article.tags.map(t => `#${t}`).join(', ')}
 
   const getFontSizeClass = () => {
     switch (localFontSize) {
+      case 'small': return 'text-sm sm:text-base md:text-[16px]';
       case 'large': return 'text-lg sm:text-xl md:text-2xl';
-      case 'xlarge': return 'text-xl sm:text-2xl md:text-3xl';
-      default: return 'text-base sm:text-lg md:text-[18.5px]';
+      default: return 'text-base sm:text-lg md:text-[18.5px]'; // medium
     }
   };
 
   const getTitleFontSizeClass = () => {
     switch (localFontSize) {
+      case 'small': return 'text-lg sm:text-xl md:text-2xl lg:text-3xl';
       case 'large': return 'text-2xl sm:text-3xl md:text-4xl lg:text-5xl';
-      case 'xlarge': return 'text-3xl sm:text-4xl md:text-5xl lg:text-6xl';
-      default: return 'text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl';
+      default: return 'text-xl sm:text-2xl md:text-3xl lg:text-4xl xl:text-5xl'; // medium
     }
   };
 
   const getExcerptFontSizeClass = () => {
     switch (localFontSize) {
+      case 'small': return 'text-xs sm:text-sm md:text-base';
       case 'large': return 'text-base sm:text-lg md:text-xl';
-      case 'xlarge': return 'text-lg sm:text-xl md:text-2xl';
-      default: return 'text-sm sm:text-base md:text-lg lg:text-xl';
+      default: return 'text-sm sm:text-base md:text-lg lg:text-xl'; // medium
     }
   };
 
   const getSubFontSizeClass = () => {
     switch (localFontSize) {
+      case 'small': return 'text-[11px] sm:text-xs';
       case 'large': return 'text-sm sm:text-base';
-      case 'xlarge': return 'text-base sm:text-lg';
-      default: return 'text-xs sm:text-sm';
+      default: return 'text-xs sm:text-sm'; // medium
     }
   };
 
@@ -1359,11 +1324,11 @@ ${article.tags.map(t => `#${t}`).join(', ')}
   const renderFormattedParagraph = (para: string, index: number) => {
     return renderRichParagraph(para, index, {
       fontSizeClass: isFocusMode
-        ? localFontSize === 'normal'
-          ? 'text-lg sm:text-xl'
+        ? localFontSize === 'small'
+          ? 'text-base sm:text-lg'
           : localFontSize === 'large'
           ? 'text-xl sm:text-2xl'
-          : 'text-2xl sm:text-3xl'
+          : 'text-lg sm:text-xl'
         : getFontSizeClass(),
       lineSpacingClass: isFocusMode ? 'leading-[2.0] sm:leading-[2.2]' : getLineSpacingClass(),
       fontFamily: fontFamily,
@@ -1654,16 +1619,17 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                   </button>
                 </div>
 
-                {/* Native / Mobile-friendly Share Button */}
+                {/* Share Button (Web Share API with custom WhatsApp share URL fallback) */}
                 <button
                   id="share-article-header-btn"
+                  type="button"
                   onClick={handleNativeShare}
-                  className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-1 rounded-xl text-xs font-bold transition-all border bg-sky-900 text-white border-sky-700 hover:bg-sky-800 hover:border-yellow-400/50 cursor-pointer shadow-2xs"
-                  title="Bagikan Berita ini ke media sosial atau salin tautan"
-                  aria-label="Bagikan Berita"
+                  className="flex items-center gap-1.5 px-3 py-1.5 sm:py-1 rounded-xl text-xs font-bold transition-all border bg-yellow-400 text-sky-950 border-yellow-500 hover:bg-yellow-300 cursor-pointer shadow-xs active:scale-95"
+                  title="Share warta ini via Web Share API atau WhatsApp"
+                  aria-label="Share"
                 >
-                  <Share2 className="w-3.5 h-3.5 text-yellow-400" />
-                  <span className="hidden sm:inline">Bagikan</span>
+                  <Share2 className="w-3.5 h-3.5 text-sky-950" />
+                  <span className="font-bold">Share</span>
                 </button>
 
                 {/* Bookmark / Simpan Button */}
@@ -1738,20 +1704,67 @@ ${article.tags.map(t => `#${t}`).join(', ')}
             }`}>
               <span className="text-[11px] font-bold px-1 font-mono">Font:</span>
               <button
+                type="button"
                 onClick={() => setFontFamily('sans')}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all ${
-                  fontFamily === 'sans' ? 'bg-yellow-400 text-sky-950 shadow-2xs' : 'text-slate-400 hover:text-white'
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  fontFamily === 'sans' ? 'bg-yellow-400 text-sky-950 shadow-2xs font-bold' : 'text-slate-500 hover:text-sky-950'
                 }`}
               >
-                Modern Sans
+                Sans
               </button>
               <button
+                type="button"
                 onClick={() => setFontFamily('serif')}
-                className={`px-2 py-0.5 rounded-lg text-xs font-serif font-bold transition-all ${
-                  fontFamily === 'serif' ? 'bg-yellow-400 text-sky-950 shadow-2xs' : 'text-slate-400 hover:text-white'
+                className={`px-2 py-0.5 rounded-lg text-xs font-serif font-bold transition-all cursor-pointer ${
+                  fontFamily === 'serif' ? 'bg-yellow-400 text-sky-950 shadow-2xs font-bold' : 'text-slate-500 hover:text-sky-950'
                 }`}
               >
-                Editorial Serif
+                Serif
+              </button>
+            </div>
+
+            {/* Font Size Toggle (small, medium, large) */}
+            <div 
+              id="font-size-toggle"
+              className={`flex items-center gap-1 p-1 rounded-xl border transition-colors ${
+                isNightMode ? 'bg-slate-800 border-slate-700 text-slate-200' : 'bg-white border-sky-200 text-sky-900'
+              }`}
+              role="group"
+              aria-label="Font Size Toggle"
+            >
+              <span className="text-[11px] font-bold px-1 font-mono">Ukuran:</span>
+              <button
+                type="button"
+                onClick={() => setLocalFontSize('small')}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  localFontSize === 'small' ? 'bg-yellow-400 text-sky-950 font-black shadow-2xs' : 'text-slate-600 hover:text-sky-900'
+                }`}
+                title="Ukuran Font Kecil (Small)"
+                aria-label="Font size small"
+              >
+                Small
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocalFontSize('medium')}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  localFontSize === 'medium' ? 'bg-yellow-400 text-sky-950 font-black shadow-2xs' : 'text-slate-600 hover:text-sky-900'
+                }`}
+                title="Ukuran Font Sedang (Medium)"
+                aria-label="Font size medium"
+              >
+                Medium
+              </button>
+              <button
+                type="button"
+                onClick={() => setLocalFontSize('large')}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  localFontSize === 'large' ? 'bg-yellow-400 text-sky-950 font-black shadow-2xs' : 'text-slate-600 hover:text-sky-900'
+                }`}
+                title="Ukuran Font Besar (Large)"
+                aria-label="Font size large"
+              >
+                Large
               </button>
             </div>
           </div>
@@ -2693,6 +2706,18 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                       <Share2 className="w-3.5 h-3.5 text-yellow-500" /> BAGIKAN:
                     </span>
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      {/* Share Button (Web Share API with WhatsApp fallback) */}
+                      <button
+                        type="button"
+                        onClick={handleNativeShare}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs transition-all shadow-xs cursor-pointer hover:scale-105 active:scale-95 border border-yellow-500"
+                        title="Share warta ini (Web Share API atau WhatsApp)"
+                        aria-label="Share"
+                      >
+                        <Share2 className="w-3.5 h-3.5 text-sky-950" />
+                        <span>Share</span>
+                      </button>
+
                       {/* WhatsApp share */}
                       <a
                         href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`${getArticleShareText()}\n\n${getArticleShareUrl()}`)}`}
@@ -3287,8 +3312,8 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                     )}
                   </div>
 
-                  {/* 4 Responsive Related Articles Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                  {/* Related Articles Cards: Displays up to three articles from the same category */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                     {relatedArticles.map((rel) => {
                       const relReadingTime = getArticleReadingTime(rel);
                       const isCardSaved = savedArticleIdSet.has(rel.id);
@@ -3519,15 +3544,16 @@ ${article.tags.map(t => `#${t}`).join(', ')}
             <span>{isPlayingAudio ? (isPausedAudio ? 'Lanjut' : 'Jeda') : 'Dengar'}</span>
           </button>
 
-          {/* Bagikan */}
+          {/* Share */}
           <button
             type="button"
             onClick={handleNativeShare}
             className="flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[10px] font-bold text-sky-300 hover:text-white transition-all active:scale-90 cursor-pointer"
-            title="Bagikan Berita"
+            title="Share"
+            aria-label="Share"
           >
             <Share2 className="w-4 h-4 mb-0.5 text-yellow-400" />
-            <span>Bagikan</span>
+            <span>Share</span>
           </button>
 
           {/* Bookmark / Simpan */}

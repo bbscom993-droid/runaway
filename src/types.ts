@@ -345,6 +345,37 @@ export interface SocialAutoShareSettings {
   includeExcerpt: boolean;
 }
 
+export interface BankAccountInfo {
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+  branch?: string;
+  instructions?: string;
+  qrCodeUrl?: string;
+  isActive?: boolean;
+}
+
+export interface LegalitasSettings {
+  companyName: string;
+  companyType: string;
+  skKemenkumham: string;
+  deedOfEstablishment: string;
+  notaryName: string;
+  nib: string;
+  npwp: string;
+  kbliPrimary: string;
+  kbliSecondary: string;
+  generalDirector: string;
+  chiefEditor: string;
+  chiefEditorUkw: string;
+  legalCounsel: string;
+  pressCouncilStatus: string;
+  verificationStatus: string;
+  officeAddress: string;
+  officePhone: string;
+  legalNotes?: string;
+}
+
 export interface SiteSettings {
   portalName: string;
   portalTagline: string;
@@ -365,6 +396,9 @@ export interface SiteSettings {
   };
   editorialBoard?: EditorialStaffMember[];
   officialContacts?: OfficialContacts;
+  bankAccountForAds?: BankAccountInfo;
+  adBankAccounts?: BankAccountInfo[];
+  legalitasSettings?: LegalitasSettings;
   seoSettings?: SEOSettings;
   semSettings?: SEMSettings;
   loginThemeSettings?: LoginThemeSettings;

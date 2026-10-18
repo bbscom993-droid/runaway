@@ -1,4 +1,4 @@
-import { NewsArticle, Category, WeatherInfo, TrendingTopic, PollData, EditorialPiece, VideoNews, PhotoStory, SiteSettings, TickerSettings, EditorialUser, EditorialStaffMember, OfficialContacts, TransportSchedule } from '../types';
+import { NewsArticle, Category, WeatherInfo, TrendingTopic, PollData, EditorialPiece, VideoNews, PhotoStory, SiteSettings, TickerSettings, EditorialUser, EditorialStaffMember, OfficialContacts, TransportSchedule, BankAccountInfo, LegalitasSettings } from '../types';
 import { DEFAULT_SEO_SETTINGS } from '../utils/seoEngine';
 import { DEFAULT_SEM_SETTINGS } from '../utils/semEngine';
 
@@ -685,6 +685,55 @@ export const INITIAL_OFFICIAL_CONTACTS: OfficialContacts = {
   pressCouncilCode: 'Terdaftar Dewan Pers RI No. 892/DP/K/VIII/2026',
 };
 
+export const DEFAULT_AD_BANK_ACCOUNT: BankAccountInfo = {
+  bankName: 'Bank Mandiri',
+  accountNumber: '123-00-0987654-3',
+  accountHolder: 'PT ARUN WARTA MULTIMEDIA',
+  branch: 'KCP Jakarta Thamrin',
+  instructions: 'Mohon cantumkan nama brand / pemesan pada berita transfer. Konfirmasi bukti pembayaran via WhatsApp Hotline Iklan.',
+  isActive: true,
+};
+
+export const DEFAULT_AD_BANK_ACCOUNTS: BankAccountInfo[] = [
+  {
+    bankName: 'Bank Mandiri',
+    accountNumber: '123-00-0987654-3',
+    accountHolder: 'PT ARUN WARTA MULTIMEDIA',
+    branch: 'KCP Jakarta Thamrin',
+    instructions: 'Rekening Operasional Utama Pembayaran Iklan, Banner & Advertorial',
+    isActive: true,
+  },
+  {
+    bankName: 'Bank Central Asia (BCA)',
+    accountNumber: '892-019-3388',
+    accountHolder: 'PT ARUN WARTA MULTIMEDIA',
+    branch: 'KCU Sudirman Jakarta',
+    instructions: 'Rekening Alternatif Pembayaran Sponsor & Kemitraan Digital',
+    isActive: true,
+  }
+];
+
+export const DEFAULT_LEGALITAS_SETTINGS: LegalitasSettings = {
+  companyName: 'PT ARUN WARTA MULTIMEDIA',
+  companyType: 'Perusahaan Penerbitan Media Siber & Multimedia Independen',
+  skKemenkumham: 'AHU-0038291.AH.01.01.TAHUN 2024',
+  deedOfEstablishment: 'No. 18 Tanggal 12 Januari 2024',
+  notaryName: 'Siti Rahmawati, S.H., M.Kn.',
+  nib: '2408220019842',
+  npwp: '40.892.123.4-112.000',
+  kbliPrimary: '63122 - Portal Web dan/atau Platform Digital Komersial',
+  kbliSecondary: '58130 - Penerbitan Surat Kabar, Majalah, & Buletin',
+  generalDirector: 'Ahmad Zulkarnaen, S.E.',
+  chiefEditor: 'Budi Santoso, M.I.Kom.',
+  chiefEditorUkw: 'Sertifikasi UKW Utama Dewan Pers',
+  legalCounsel: 'Advokat Hendra Wijaya, S.H., M.H.',
+  pressCouncilStatus: 'Terdaftar Dewan Pers RI No. 892/DP/K/VIII/2026',
+  verificationStatus: 'RESMI & TERVERIFIKASI',
+  officeAddress: 'Gedung Pers Arun Warta Lt. 3, Jl. MH Thamrin No. 88, Jakarta Pusat',
+  officePhone: '(021) 3928-1122',
+  legalNotes: 'Penyelenggaraan media pers independen berlandaskan UU Pers No. 40 Tahun 1999 dan Pedoman Pemberitaan Media Siber.',
+};
+
 export const INITIAL_SITE_SETTINGS: SiteSettings = {
   portalName: 'Arun News',
   portalTagline: 'Jembatan Informasi Nusantara',
@@ -704,6 +753,9 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   },
   editorialBoard: INITIAL_EDITORIAL_BOARD,
   officialContacts: INITIAL_OFFICIAL_CONTACTS,
+  bankAccountForAds: DEFAULT_AD_BANK_ACCOUNT,
+  adBankAccounts: DEFAULT_AD_BANK_ACCOUNTS,
+  legalitasSettings: DEFAULT_LEGALITAS_SETTINGS,
   seoSettings: DEFAULT_SEO_SETTINGS,
   semSettings: DEFAULT_SEM_SETTINGS,
   loginThemeSettings: {
