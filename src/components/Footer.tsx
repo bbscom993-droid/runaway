@@ -388,23 +388,6 @@ export const Footer: React.FC<FooterProps> = ({
                   </button>
                 </li>
               )}
-              {/* Pengaturan Admin */}
-              <li>
-                <a 
-                  href="https://portalarunews.com/#/admin"
-                  onClick={(e) => {
-                    if (onNavigateToEditorial) {
-                      e.preventDefault();
-                      onNavigateToEditorial();
-                    }
-                  }}
-                  className="hover:text-yellow-400 text-yellow-300 font-bold transition-colors text-left flex items-center gap-1.5 cursor-pointer font-mono"
-                  title="Akses Pengaturan Admin Portal (portalarunews.com/#/admin)"
-                >
-                  <Sliders className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
-                  <span>Pengaturan Admin</span>
-                </a>
-              </li>
               {siteSettings?.moduleToggles?.showPedomanMediaSiber !== false && (
                 <li>
                   <button 

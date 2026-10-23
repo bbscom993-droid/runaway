@@ -1473,8 +1473,7 @@ export default function App() {
               onOpenCyberMediaGuidelinesModal={handleOpenCyberMediaGuidelines} 
               legalitasSettings={siteSettings.legalitasSettings}
               onOpenEditorialSettings={() => {
-                setCurrentRoute('admin');
-                window.location.hash = '#/admin';
+                navigateToEditorial();
               }}
             />
           </div>
