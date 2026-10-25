@@ -69,7 +69,12 @@ import {
 } from '../utils/offlineStorage';
 import { saveCommentToDB, fetchCommentsFromDB } from '../services/dbClient';
 import { UniversalShareModal } from './UniversalShareModal';
-import { getArticleShareUrl as getPublicArticleShareUrl, getPublicPortalOrigin } from '../utils/shareUtils';
+import { 
+  getArticleShareUrl as getPublicArticleShareUrl, 
+  getPublicPortalOrigin,
+  shareArticleViaWebShare,
+  copyArticleImageToClipboard
+} from '../utils/shareUtils';
 
 interface ReactionItem {
   emoji: string;
@@ -1041,28 +1046,24 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
 
   const handleNativeShare = async () => {
     if (!article) return;
-    const shareUrl = getArticleShareUrl();
-    const shareText = article.excerpt || (article.paragraphs && article.paragraphs[0]) || '';
-    const shareData = {
-      title: article.title,
-      text: shareText,
-      url: shareUrl,
-    };
-
-    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
-      try {
-        await navigator.share(shareData);
-        handleTrackShare('native');
-        return;
-      } catch (err: any) {
-        if (err && err.name === 'AbortError') {
-          return;
+    try {
+      const res = await shareArticleViaWebShare(article, {
+        onSuccess: () => {
+          handleTrackShare('native_with_image');
+        },
+        onCancel: () => {},
+        onError: () => {
+          setIsShareModalOpen(true);
         }
-      }
-    }
+      });
 
-    // Fallback manual: salin tautan artikel ke clipboard
-    handleCopyLink();
+      if (res.method === 'clipboard') {
+        setCopiedText(true);
+        setTimeout(() => setCopiedText(false), 2500);
+      }
+    } catch {
+      setIsShareModalOpen(true);
+    }
   };
 
   const handleCopyFullDraft = () => {
@@ -1603,17 +1604,28 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                   </button>
                 </div>
 
-                {/* Share Button (Web Share API with custom WhatsApp share URL fallback) */}
+                {/* Share Button (Web Share API with image preview & WhatsApp support) */}
                 <button
                   id="share-article-header-btn"
                   type="button"
                   onClick={handleNativeShare}
-                  className="flex items-center gap-1.5 px-3 py-1.5 sm:py-1 rounded-xl text-xs font-bold transition-all border bg-yellow-400 text-sky-950 border-yellow-500 hover:bg-yellow-300 cursor-pointer shadow-xs active:scale-95"
-                  title="Share warta ini via Web Share API atau WhatsApp"
-                  aria-label="Share"
+                  className="flex items-center gap-1.5 px-2.5 py-1 sm:py-1 rounded-xl text-xs font-bold transition-all border bg-yellow-400 text-sky-950 border-yellow-500 hover:bg-yellow-300 cursor-pointer shadow-xs active:scale-95 group"
+                  title="Share warta ini via Web Share API atau WhatsApp (Disertai Foto & Gambar Warta)"
+                  aria-label="Share Warta dengan Gambar"
                 >
-                  <Share2 className="w-3.5 h-3.5 text-sky-950" />
-                  <span className="font-bold">Share</span>
+                  {article.imageUrl ? (
+                    <div className="relative w-4 h-4 rounded overflow-hidden border border-sky-950/40 flex-shrink-0 shadow-2xs">
+                      <img
+                        src={article.imageUrl}
+                        alt=""
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                        crossOrigin="anonymous"
+                      />
+                    </div>
+                  ) : (
+                    <Share2 className="w-3.5 h-3.5 text-sky-950" />
+                  )}
+                  <span className="font-black">Bagikan + Gambar</span>
                 </button>
 
                 {/* Bookmark / Simpan Button */}
@@ -2690,16 +2702,38 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                       <Share2 className="w-3.5 h-3.5 text-yellow-500" /> BAGIKAN:
                     </span>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      {/* Share Button (Web Share API with WhatsApp fallback) */}
+                      {/* Share Button (Web Share API with image thumbnail preview & WhatsApp support) */}
                       <button
                         type="button"
                         onClick={handleNativeShare}
-                        className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs transition-all shadow-xs cursor-pointer hover:scale-105 active:scale-95 border border-yellow-500"
-                        title="Share warta ini (Web Share API atau WhatsApp)"
-                        aria-label="Share"
+                        className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs transition-all shadow-xs cursor-pointer hover:scale-105 active:scale-95 border border-yellow-500 group"
+                        title="Share warta ini via Web Share API atau WhatsApp (Tampilkan & Sertakan Gambar Warta)"
+                        aria-label="Share dengan Gambar"
                       >
-                        <Share2 className="w-3.5 h-3.5 text-sky-950" />
-                        <span>Share</span>
+                        {article.imageUrl ? (
+                          <div className="relative w-4 h-4 rounded overflow-hidden border border-sky-950/40 flex-shrink-0 shadow-2xs">
+                            <img
+                              src={article.imageUrl}
+                              alt=""
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform"
+                              crossOrigin="anonymous"
+                            />
+                          </div>
+                        ) : (
+                          <Share2 className="w-3.5 h-3.5 text-sky-950" />
+                        )}
+                        <span>Share + Gambar</span>
+                      </button>
+
+                      {/* Tombol Opsi Lengkap / Modal Gambar */}
+                      <button
+                        type="button"
+                        onClick={() => setIsShareModalOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-900 hover:bg-sky-800 text-yellow-300 font-bold text-xs transition-all shadow-2xs border border-sky-700 cursor-pointer hover:scale-105 active:scale-95"
+                        title="Buka dialog opsi bagikan lengkap (Salin Foto, Unduh Gambar, Sitasi)"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+                        <span>Opsi Lengkap</span>
                       </button>
 
                       {/* Salin Teks & Link Manual */}
@@ -3825,6 +3859,14 @@ ${article.tags.map(t => `#${t}`).join(', ')}
         isOpen={isGlossaryModalOpen}
         onClose={() => setIsGlossaryModalOpen(false)}
         initialTerm={selectedGlossaryTerm}
+      />
+
+      {/* Universal Share Modal (Tampilkan Gambar Berita, Salin Foto, & Web Share API) */}
+      <UniversalShareModal
+        article={article}
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        onTrackShare={handleTrackShare}
       />
     </div>
     </>

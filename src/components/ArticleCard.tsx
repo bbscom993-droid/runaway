@@ -23,6 +23,7 @@ import { analyzeArticleSentiment } from '../utils/sentimentEngine';
 import { getArticleReadingTime } from '../utils/readingTime';
 import { ArticleMiniPodcast } from './ArticleMiniPodcast';
 import { UniversalShareModal } from './UniversalShareModal';
+import { shareArticleViaWebShare, copyArticleImageToClipboard } from '../utils/shareUtils';
 
 export interface ArticleShareButtonProps {
   article: NewsArticle;
@@ -80,36 +81,15 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
     e.stopPropagation();
     e.preventDefault();
     try {
-      let file: File | null = null;
-      if (article.imageUrl && typeof navigator !== 'undefined' && navigator.canShare) {
-        try {
-          const resp = await fetch(article.imageUrl, { mode: 'cors' });
-          if (resp.ok) {
-            const blob = await resp.blob();
-            file = new File([blob], `${article.slug || 'arun-news'}.jpg`, { type: blob.type || 'image/jpeg' });
-          }
-        } catch {
-          // CORS fallback
+      const res = await shareArticleViaWebShare(article, {
+        onSuccess: () => setIsOpen(false),
+        onCancel: () => setIsOpen(false),
+        onError: () => {
+          setIsFullModalOpen(true);
+          setIsOpen(false);
         }
-      }
-
-      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: article.title,
-          text: shareText,
-          url: shareUrl,
-        });
-        setIsOpen(false);
-        return;
-      }
-
-      if (navigator.share) {
-        await navigator.share({
-          title: article.title,
-          text: shareText,
-          url: shareUrl,
-        });
+      });
+      if (res.success) {
         setIsOpen(false);
         return;
       }
@@ -149,11 +129,22 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
                 ? 'bg-yellow-400 text-sky-950 border border-yellow-500 font-black ring-2 ring-yellow-400/50'
                 : 'bg-sky-50 hover:bg-yellow-100 text-sky-900 hover:text-sky-950 border border-sky-200 hover:border-yellow-400'
           }`}
-          title="Bagikan Berita (Gambar, Teks & Tautan)"
+          title="Bagikan Berita (Disertai Gambar via Web Share API / WhatsApp)"
           aria-label="Bagikan Berita"
           aria-expanded={isOpen}
         >
-          <Share2 className={`w-3.5 h-3.5 ${variant === 'badge' ? (isOpen ? 'text-sky-950' : 'text-yellow-400') : 'text-sky-700'}`} />
+          {article.imageUrl ? (
+            <div className="relative w-4 h-4 rounded overflow-hidden border border-sky-950/30 flex-shrink-0">
+              <img
+                src={article.imageUrl}
+                alt=""
+                className="w-full h-full object-cover"
+                crossOrigin="anonymous"
+              />
+            </div>
+          ) : (
+            <Share2 className={`w-3.5 h-3.5 ${variant === 'badge' ? (isOpen ? 'text-sky-950' : 'text-yellow-400') : 'text-sky-700'}`} />
+          )}
           <span className="font-bold">Bagikan</span>
         </button>
 
@@ -179,8 +170,42 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
               </button>
             </div>
 
+            {/* Pratinjau Gambar Berita yang Disertakan */}
+            {article.imageUrl && (
+              <div className="flex items-center gap-2 p-2 bg-gradient-to-r from-sky-950 to-sky-900 rounded-xl border border-sky-800 text-white mb-2 shadow-xs">
+                <img
+                  src={article.imageUrl}
+                  alt={article.title}
+                  className="w-11 h-11 rounded-lg object-cover border border-yellow-400/80 flex-shrink-0"
+                  crossOrigin="anonymous"
+                />
+                <div className="min-w-0 flex-1">
+                  <span className="text-[8px] font-mono font-black text-sky-950 bg-yellow-400 px-1 py-0.2 rounded uppercase">
+                    Foto Disertakan
+                  </span>
+                  <p className="text-[11px] font-bold text-white truncate mt-0.5">{article.title}</p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-1.5 text-xs">
-              {/* Primary: Bagikan Lengkap (Gambar, Teks & Link) */}
+              {/* Primary: Bagikan Langsung via Web Share API / WhatsApp (Beserta Foto) */}
+              <button
+                type="button"
+                onClick={handleNativeShare}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-sky-950 font-black transition-all shadow-xs cursor-pointer border border-yellow-500 active:scale-98"
+                title="Kirim via Web Share API / WhatsApp beserta lampiran foto berita"
+              >
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-4 h-4 text-sky-950" />
+                  <span className="font-mono uppercase text-[11px]">Kirim + Foto (Web Share)</span>
+                </div>
+                <span className="text-[9px] bg-sky-950 text-yellow-400 font-bold px-1.5 py-0.5 rounded">
+                  Foto Aktif
+                </span>
+              </button>
+
+              {/* Opsi Lengkap: Buka Modal Detail */}
               <button
                 type="button"
                 onClick={(e) => {
@@ -188,15 +213,15 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
                   setIsFullModalOpen(true);
                   setIsOpen(false);
                 }}
-                className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-300 hover:to-amber-300 text-sky-950 font-black transition-all shadow-xs cursor-pointer border border-yellow-500 active:scale-98"
-                title="Buka menu bagikan lengkap beserta gambar dan teks"
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-sky-900 hover:bg-sky-800 text-white font-bold transition-all shadow-xs cursor-pointer border border-sky-700 active:scale-98"
+                title="Buka menu bagikan lengkap beserta opsi salin gambar dan sitasi"
               >
                 <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-sky-950" />
-                  <span className="font-mono uppercase text-[11px]">Bagikan Gambar + Teks</span>
+                  <Sparkles className="w-3.5 h-3.5 text-yellow-400" />
+                  <span className="text-[11px]">Opsi Bagikan Lengkap</span>
                 </div>
-                <span className="text-[10px] bg-sky-950 text-yellow-400 font-bold px-1.5 py-0.5 rounded">
-                  Lengkap
+                <span className="text-[9px] text-sky-300 font-mono">
+                  Modal
                 </span>
               </button>
 

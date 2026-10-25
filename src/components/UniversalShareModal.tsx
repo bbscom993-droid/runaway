@@ -11,10 +11,17 @@ import {
   Sparkles,
   Smartphone,
   Send,
-  FileText
+  FileText,
+  MessageCircle,
+  Camera
 } from 'lucide-react';
 import { NewsArticle } from '../types';
-import { getArticleShareUrl } from '../utils/shareUtils';
+import { 
+  getArticleShareUrl, 
+  getArticleImageFile, 
+  copyArticleImageToClipboard,
+  shareArticleViaWebShare 
+} from '../utils/shareUtils';
 
 export interface UniversalShareModalProps {
   article: NewsArticle;
@@ -34,6 +41,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
   const [copiedImage, setCopiedImage] = useState(false);
   const [copiedCitation, setCopiedCitation] = useState(false);
   const [isSharingNative, setIsSharingNative] = useState(false);
+  const [isSharingWhatsApp, setIsSharingWhatsApp] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,7 +66,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     setShareFeedback(msg);
     setTimeout(() => {
       setShareFeedback(null);
-    }, 3500);
+    }, 4000);
   };
 
   // 1. Salin Teks Lengkap + Tautan (Manual Share Utama)
@@ -83,24 +91,40 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     }
   };
 
-  // 3. Native Web Share (Menu Berbagi Sistem Perangkat)
+  // 3. Native Web Share (Menu Berbagi Sistem Perangkat dengan File Gambar)
   const handleNativeShareFull = async () => {
     setIsSharingNative(true);
     try {
-      let file: File | null = null;
-      if (article.imageUrl) {
-        try {
-          const resp = await fetch(article.imageUrl, { mode: 'cors' });
-          if (resp.ok) {
-            const blob = await resp.blob();
-            file = new File([blob], `${article.slug || 'arun-news'}.jpg`, { type: blob.type || 'image/jpeg' });
-          }
-        } catch {
-          // CORS fallback
+      const res = await shareArticleViaWebShare(article, {
+        onSuccess: () => {
+          if (onTrackShare) onTrackShare('native_files');
+          triggerFeedback('✓ Berita & foto warta berhasil dibagikan via sistem perangkat!');
+        },
+        onError: () => {
+          handleCopyFullText();
         }
-      }
+      });
 
+      if (res.method === 'clipboard') {
+        setCopiedText(true);
+        triggerFeedback('✓ Teks & link warta telah disalin ke clipboard.');
+        setTimeout(() => setCopiedText(false), 2500);
+      }
+    } catch {
+      // User cancelled or dismissed share sheet
+    } finally {
+      setIsSharingNative(false);
+    }
+  };
+
+  // 3b. Kirim ke WhatsApp (Beserta Foto Warta Otomatis)
+  const handleShareToWhatsAppWithImage = async () => {
+    setIsSharingWhatsApp(true);
+    try {
+      const file = await getArticleImageFile(article);
       const nav = typeof navigator !== 'undefined' ? navigator : null;
+
+      // Jika Web Share API mendukung kirim file:
       if (nav && nav.canShare && file && nav.canShare({ files: [file] })) {
         await nav.share({
           files: [file],
@@ -108,31 +132,30 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
           text: shareFullText,
           url: shareUrl,
         });
-        if (onTrackShare) onTrackShare('native_files');
-        triggerFeedback('✓ Berita, gambar & tautan berhasil dibagikan!');
+        if (onTrackShare) onTrackShare('whatsapp_webshare_files');
+        triggerFeedback('✓ Foto warta & teks berita berhasil dibagikan!');
         return;
       }
 
-      if (nav && nav.share) {
-        await nav.share({
-          title: article.title,
-          text: shareFullText,
-          url: shareUrl,
-        });
-        if (onTrackShare) onTrackShare('native_text');
-        triggerFeedback('✓ Tautan & teks warta berhasil dibagikan!');
-        return;
+      // Fallback desktop / browser tanpa file sharing:
+      // Salin foto ke clipboard otomatis & buka WhatsApp
+      const copiedImg = await copyArticleImageToClipboard(article);
+      if (nav && nav.clipboard) {
+        await nav.clipboard.writeText(shareFullText);
       }
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareFullText)}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      if (onTrackShare) onTrackShare('whatsapp_direct_clipboard');
 
-      // If neither is supported, copy text and notify
-      await navigator.clipboard.writeText(shareFullText);
-      setCopiedText(true);
-      triggerFeedback('✓ Browser tidak mendukung menu share sistem. Teks & link telah disalin!');
-      setTimeout(() => setCopiedText(false), 2500);
+      if (copiedImg) {
+        triggerFeedback('✓ Foto warta & teks telah disalin! Tekan Tempel / Ctrl+V di chat WhatsApp untuk melampirkan gambar.');
+      } else {
+        triggerFeedback('✓ Membuka WhatsApp dengan judul & tautan resmi berita.');
+      }
     } catch {
-      // User cancelled or dismissed share sheet
+      // Cancelled
     } finally {
-      setIsSharingNative(false);
+      setIsSharingWhatsApp(false);
     }
   };
 
@@ -257,18 +280,21 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
         )}
 
         {/* Card Preview (Gambar + Teks + Info) */}
-        <div className="p-3 bg-gradient-to-br from-sky-950 via-sky-900 to-slate-900 rounded-xl border border-sky-800 text-white mb-4 shadow-inner">
+        <div className="p-3.5 bg-gradient-to-br from-sky-950 via-sky-900 to-slate-900 rounded-2xl border-2 border-yellow-400 text-white mb-4 shadow-inner">
           <div className="flex flex-col sm:flex-row gap-3">
             {article.imageUrl && (
-              <div className="relative w-full sm:w-28 h-28 rounded-lg overflow-hidden flex-shrink-0 border border-sky-700 shadow-xs">
+              <div className="relative w-full sm:w-32 h-32 rounded-xl overflow-hidden flex-shrink-0 border-2 border-yellow-400 shadow-md group">
                 <img
                   src={article.imageUrl}
                   alt={article.title}
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                 />
-                <span className="absolute bottom-1 right-1 bg-yellow-400 text-sky-950 text-[8px] font-black font-mono px-1 rounded">
+                <span className="absolute top-1.5 left-1.5 bg-yellow-400 text-sky-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow-sm">
                   FOTO WARTA
+                </span>
+                <span className="absolute bottom-1.5 right-1.5 bg-emerald-500 text-slate-950 text-[8px] font-black font-mono px-1.5 py-0.5 rounded shadow-sm">
+                  ✓ Foto Terlampir
                 </span>
               </div>
             )}
@@ -287,45 +313,63 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
               <p className="text-[11px] text-sky-200 line-clamp-2 leading-relaxed">
                 {cleanExcerpt}
               </p>
-              <div className="text-[10px] text-yellow-300 font-mono pt-1">
-                🌐 arunnews.id
+              <div className="text-[10px] text-yellow-300 font-mono pt-1 flex items-center gap-2">
+                <span>🌐 arunnews.id</span>
+                <span>•</span>
+                <span className="text-emerald-300 font-bold">📸 Foto warta siap dikirim</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* 1. Tombol Utama: Salin Teks Lengkap + Tautan Berita (Manual Share Paling Cepat) */}
-        <div className="mb-3">
+        {/* 1. Tombol Kirim ke WhatsApp (Beserta Foto & Tautan Berita) */}
+        <div className="mb-2.5">
           <button
             type="button"
-            onClick={handleCopyFullText}
-            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-sky-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer border-2 border-yellow-500 active:scale-98"
-            title="Salin judul warta, ringkasan dan tautan lengkap untuk ditempel manual ke aplikasi mana pun"
+            onClick={handleShareToWhatsAppWithImage}
+            disabled={isSharingWhatsApp}
+            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-emerald-500 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer border-2 border-emerald-400 active:scale-98"
+            title="Kirim artikel berita ini langsung ke WhatsApp beserta foto warta"
           >
-            {copiedText ? <Check className="w-5 h-5 text-sky-950" /> : <Copy className="w-5 h-5 text-sky-950" />}
-            <span>{copiedText ? '✓ Teks Berita & Tautan Berhasil Disalin!' : 'Salin Teks Lengkap + Tautan Berita'}</span>
+            <MessageCircle className="w-5 h-5 text-white" />
+            <span>{isSharingWhatsApp ? 'Menyiapkan Foto Warta...' : 'Kirim ke WhatsApp (Beserta Foto Berita)'}</span>
+            {article.imageUrl && (
+              <span className="text-[9px] bg-yellow-400 text-slate-950 font-black px-1.5 py-0.5 rounded uppercase">
+                + Foto
+              </span>
+            )}
           </button>
-          <p className="text-[10px] text-sky-800 font-mono mt-1 text-center font-bold">
-            📋 1-Klik Salin: Format rapi siap Anda paste secara manual ke WhatsApp, Telegram, email, atau catatan.
+          <p className="text-[10px] text-emerald-800 font-mono mt-1 text-center font-bold">
+            💬 Melampirkan foto berita secara otomatis ke chat / grup WhatsApp Anda.
           </p>
         </div>
 
-        {/* 2. Tombol Bagikan Manual Sistem (Perangkat) */}
-        <div className="mb-4">
+        {/* 2. Tombol Bagikan Manual Sistem (Web Share API) */}
+        <div className="mb-3">
           <button
             type="button"
             onClick={handleNativeShareFull}
             disabled={isSharingNative}
             className="w-full py-3 px-4 rounded-xl bg-sky-900 hover:bg-sky-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-sky-700 active:scale-98"
-            title="Buka menu berbagi bawaan sistem perangkat Anda"
+            title="Buka menu berbagi bawaan sistem perangkat Anda dengan foto berita"
           >
             <Smartphone className="w-4 h-4 text-yellow-400" />
-            <span>Bagikan Manual via Menu Sistem Perangkat</span>
+            <span>Bagikan via Menu Sistem (Web Share API)</span>
             <ExternalLink className="w-3.5 h-3.5 text-sky-300" />
           </button>
-          <p className="text-[10px] text-slate-500 font-mono mt-1 text-center">
-            Membuka jendela berbagi bawaan OS perangkat Anda (Pilih aplikasi secara manual)
-          </p>
+        </div>
+
+        {/* 3. Salin Teks Lengkap + Tautan Berita */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleCopyFullText}
+            className="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-yellow-400 to-amber-400 hover:from-yellow-300 hover:to-amber-300 text-sky-950 font-black text-xs uppercase tracking-wider shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer border border-yellow-500 active:scale-98"
+            title="Salin judul warta, ringkasan dan tautan lengkap untuk ditempel manual"
+          >
+            {copiedText ? <Check className="w-4 h-4 text-sky-950" /> : <Copy className="w-4 h-4 text-sky-950" />}
+            <span>{copiedText ? '✓ Teks & Tautan Berhasil Disalin!' : 'Salin Teks Lengkap + Tautan Berita'}</span>
+          </button>
         </div>
 
         {/* 3. Tindakan Cepat (Salin Teks, Salin Link, Gambar, Unduh, Sitasi) */}
