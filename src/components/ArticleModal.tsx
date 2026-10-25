@@ -1048,8 +1048,9 @@ export const ArticleModal: React.FC<ArticleModalProps> = ({
     if (!article) return;
     try {
       const res = await shareArticleViaWebShare(article, {
+        useBrandedCard: true,
         onSuccess: () => {
-          handleTrackShare('native_with_image');
+          handleTrackShare('native_with_image_and_source');
         },
         onCancel: () => {},
         onError: () => {
@@ -1610,8 +1611,8 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                   type="button"
                   onClick={handleNativeShare}
                   className="flex items-center gap-1.5 px-2.5 py-1 sm:py-1 rounded-xl text-xs font-bold transition-all border bg-yellow-400 text-sky-950 border-yellow-500 hover:bg-yellow-300 cursor-pointer shadow-xs active:scale-95 group"
-                  title="Share warta ini via Web Share API atau WhatsApp (Disertai Foto & Gambar Warta)"
-                  aria-label="Share Warta dengan Gambar"
+                  title="Share warta ini via Web Share API atau WhatsApp (Beserta Foto & Tautan Sumber Resmi)"
+                  aria-label="Share Gambar & Sumber"
                 >
                   {article.imageUrl ? (
                     <div className="relative w-4 h-4 rounded overflow-hidden border border-sky-950/40 flex-shrink-0 shadow-2xs">
@@ -1625,7 +1626,7 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                   ) : (
                     <Share2 className="w-3.5 h-3.5 text-sky-950" />
                   )}
-                  <span className="font-black">Bagikan + Gambar</span>
+                  <span className="font-black whitespace-nowrap">Share Gambar & Sumber</span>
                 </button>
 
                 {/* Bookmark / Simpan Button */}
@@ -2707,8 +2708,8 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                         type="button"
                         onClick={handleNativeShare}
                         className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-sky-950 font-black text-xs transition-all shadow-xs cursor-pointer hover:scale-105 active:scale-95 border border-yellow-500 group"
-                        title="Share warta ini via Web Share API atau WhatsApp (Tampilkan & Sertakan Gambar Warta)"
-                        aria-label="Share dengan Gambar"
+                        title="Bagikan warta ini via Web Share API atau WhatsApp (Beserta Foto & Tautan Sumber Resmi)"
+                        aria-label="Share Gambar dan Sumber"
                       >
                         {article.imageUrl ? (
                           <div className="relative w-4 h-4 rounded overflow-hidden border border-sky-950/40 flex-shrink-0 shadow-2xs">
@@ -2722,7 +2723,7 @@ ${article.tags.map(t => `#${t}`).join(', ')}
                         ) : (
                           <Share2 className="w-3.5 h-3.5 text-sky-950" />
                         )}
-                        <span>Share + Gambar</span>
+                        <span>Share Gambar & Sumber</span>
                       </button>
 
                       {/* Tombol Opsi Lengkap / Modal Gambar */}

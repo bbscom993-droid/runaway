@@ -15,7 +15,8 @@ import {
   Check,
   Copy,
   FileText,
-  X
+  X,
+  MessageCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NewsArticle } from '../types';
@@ -23,7 +24,12 @@ import { analyzeArticleSentiment } from '../utils/sentimentEngine';
 import { getArticleReadingTime } from '../utils/readingTime';
 import { ArticleMiniPodcast } from './ArticleMiniPodcast';
 import { UniversalShareModal } from './UniversalShareModal';
-import { shareArticleViaWebShare, copyArticleImageToClipboard } from '../utils/shareUtils';
+import { 
+  shareArticleViaWebShare, 
+  copyArticleImageToClipboard, 
+  getArticleShareUrl, 
+  getWhatsAppShareText 
+} from '../utils/shareUtils';
 
 export interface ArticleShareButtonProps {
   article: NewsArticle;
@@ -45,12 +51,8 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
   const [copied, setCopied] = useState(false);
   const dropdownRef = React.useRef<HTMLDivElement>(null);
 
-  const shareTarget = encodeURIComponent(article.slug || article.id);
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/article/${shareTarget}`
-    : `https://portalarunews.com/article/${shareTarget}`;
-  const cleanExcerpt = article.excerpt || article.content?.substring(0, 160) || '';
-  const shareText = `📰 *${article.title}*\n\n${cleanExcerpt}...\n\n👉 Baca warta di Arun News:\n${shareUrl}`;
+  const shareUrl = getArticleShareUrl(article);
+  const shareText = getWhatsAppShareText(article);
 
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -82,6 +84,7 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
     e.preventDefault();
     try {
       const res = await shareArticleViaWebShare(article, {
+        useBrandedCard: true,
         onSuccess: () => setIsOpen(false),
         onCancel: () => setIsOpen(false),
         onError: () => {
@@ -99,6 +102,30 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
     // Fallback: open full modal
     setIsFullModalOpen(true);
     setIsOpen(false);
+  };
+
+  const handleDirectWhatsApp = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    try {
+      // Coba share dengan file jika browser mendukung
+      const res = await shareArticleViaWebShare(article, {
+        useBrandedCard: true,
+        onSuccess: () => setIsOpen(false),
+        onCancel: () => setIsOpen(false)
+      });
+      if (res.success && res.hasImage) {
+        return;
+      }
+      // Jika desktop / tanpa file share: salin gambar ke clipboard & buka WA Web dengan teks sumber lengkap
+      await copyArticleImageToClipboard(article, { useBrandedCard: true });
+      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareText)}`;
+      window.open(waUrl, '_blank', 'noopener,noreferrer');
+      setIsOpen(false);
+    } catch {
+      setIsFullModalOpen(true);
+      setIsOpen(false);
+    }
   };
 
   const btnClasses = size === 'sm'
@@ -189,19 +216,35 @@ export const ArticleShareButton: React.FC<ArticleShareButtonProps> = ({
             )}
 
             <div className="space-y-1.5 text-xs">
-              {/* Primary: Bagikan Langsung via Web Share API / WhatsApp (Beserta Foto) */}
+              {/* Dedicated WhatsApp (Beserta Foto & Sumber Resmi) */}
+              <button
+                type="button"
+                onClick={handleDirectWhatsApp}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-black transition-all shadow-xs cursor-pointer border border-emerald-600 active:scale-98"
+                title="Kirim warta ini ke WhatsApp (Disertai Foto & Tautan Sumber Resmi)"
+              >
+                <div className="flex items-center gap-2">
+                  <MessageCircle className="w-4 h-4 fill-white text-white" />
+                  <span className="text-[11px] font-black">WhatsApp (+ Foto & Sumber)</span>
+                </div>
+                <span className="text-[9px] bg-emerald-900 text-white font-mono font-bold px-1.5 py-0.5 rounded">
+                  WA
+                </span>
+              </button>
+
+              {/* Primary: Bagikan Langsung via Web Share API (Beserta Foto & Sumber) */}
               <button
                 type="button"
                 onClick={handleNativeShare}
                 className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-sky-950 font-black transition-all shadow-xs cursor-pointer border border-yellow-500 active:scale-98"
-                title="Kirim via Web Share API / WhatsApp beserta lampiran foto berita"
+                title="Kirim via Web Share API beserta lampiran foto berita & sumber resmi"
               >
                 <div className="flex items-center gap-2">
                   <Share2 className="w-4 h-4 text-sky-950" />
-                  <span className="font-mono uppercase text-[11px]">Kirim + Foto (Web Share)</span>
+                  <span className="font-mono uppercase text-[11px]">Kirim + Foto & Sumber</span>
                 </div>
                 <span className="text-[9px] bg-sky-950 text-yellow-400 font-bold px-1.5 py-0.5 rounded">
-                  Foto Aktif
+                  Web Share
                 </span>
               </button>
 
