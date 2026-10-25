@@ -36,10 +36,10 @@ export function getArticleShareUrl(article: { id?: string; slug?: string }): str
 }
 
 /**
- * Format teks pesan WhatsApp resmi: Judul tebal, ringkasan warta, dan URL sumber di baris tersendiri
- * Format ini memastikan WhatsApp Crawler mendeteksi URL dan langsung menampilkan Open Graph Card Preview dengan foto berita
+ * Format teks pesan warta resmi: Judul tebal, ringkasan warta, dan URL sumber di baris tersendiri
+ * Format ini siap disalin secara manual untuk ditempel di WhatsApp, Telegram, email, dsb.
  */
-export function getWhatsAppShareText(article: NewsArticle): string {
+export function getManualShareText(article: NewsArticle): string {
   const url = getArticleShareUrl(article);
   const rawExcerpt = article.excerpt || (article.paragraphs && article.paragraphs[0]) || article.content?.substring(0, 160) || '';
   const cleanExcerpt = rawExcerpt.length > 150 ? rawExcerpt.slice(0, 150) + '...' : rawExcerpt;
@@ -47,21 +47,22 @@ export function getWhatsAppShareText(article: NewsArticle): string {
   return `📰 *${article.title}*\n\n${cleanExcerpt}\n\n👉 *Baca Selengkapnya Langsung di Portal Arun News:*\n${url}`;
 }
 
-/**
- * Membuka aplikasi WhatsApp langsung di smartphone (whatsapp://) atau web WhatsApp di desktop (api.whatsapp.com)
- */
-export function openWhatsAppShare(article: NewsArticle): void {
-  const message = getWhatsAppShareText(article);
-  const encoded = encodeURIComponent(message);
-  const waWebUrl = `https://api.whatsapp.com/send?text=${encoded}`;
+export function getWhatsAppShareText(article: NewsArticle): string {
+  return getManualShareText(article);
+}
 
-  // Menggunakan window.open agar URL dan posisi halaman portal tidak berubah atau hilang
-  try {
-    const opened = window.open(waWebUrl, '_blank', 'noopener,noreferrer');
-    if (!opened) {
-      window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
-    }
-  } catch {
-    window.open(waWebUrl, '_blank', 'noopener,noreferrer');
+/**
+ * Salin teks & link warta ke clipboard (Manual Share)
+ */
+export function copyArticleShareText(article: NewsArticle): boolean {
+  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    const text = getManualShareText(article);
+    navigator.clipboard.writeText(text);
+    return true;
   }
+  return false;
+}
+
+export function openWhatsAppShare(article: NewsArticle): void {
+  copyArticleShareText(article);
 }

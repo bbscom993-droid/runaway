@@ -7,17 +7,14 @@ import {
   Image as ImageIcon,
   X,
   ExternalLink,
-  MessageCircle,
   Quote,
-  ArrowRight,
   Sparkles,
   Smartphone,
   Send,
-  FileText,
-  AlertCircle
+  FileText
 } from 'lucide-react';
 import { NewsArticle } from '../types';
-import { getArticleShareUrl, getPublicPortalOrigin } from '../utils/shareUtils';
+import { getArticleShareUrl } from '../utils/shareUtils';
 
 export interface UniversalShareModalProps {
   article: NewsArticle;
@@ -36,8 +33,6 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
   const [copiedText, setCopiedText] = useState(false);
   const [copiedImage, setCopiedImage] = useState(false);
   const [copiedCitation, setCopiedCitation] = useState(false);
-  const [targetWaNumber, setTargetWaNumber] = useState('');
-  const [waSendError, setWaSendError] = useState<string | null>(null);
   const [isSharingNative, setIsSharingNative] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
@@ -47,7 +42,6 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     } else {
       document.body.style.overflow = '';
       setShareFeedback(null);
-      setWaSendError(null);
     }
     return () => {
       document.body.style.overflow = '';
@@ -67,7 +61,29 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     }, 3500);
   };
 
-  // 1. Native Web Share with Image File, Text, & Link (Menu Share Sistem)
+  // 1. Salin Teks Lengkap + Tautan (Manual Share Utama)
+  const handleCopyFullText = async () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(shareFullText);
+      setCopiedText(true);
+      if (onTrackShare) onTrackShare('copy_full_text');
+      triggerFeedback('✓ Judul, ringkasan & tautan berhasil disalin ke clipboard! Siap ditempel manual.');
+      setTimeout(() => setCopiedText(false), 2500);
+    }
+  };
+
+  // 2. Salin Tautan Saja
+  const handleCopyLink = async () => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopiedLink(true);
+      if (onTrackShare) onTrackShare('copy_link');
+      triggerFeedback('✓ Tautan artikel berhasil disalin!');
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
+  };
+
+  // 3. Native Web Share (Menu Berbagi Sistem Perangkat)
   const handleNativeShareFull = async () => {
     setIsSharingNative(true);
     try {
@@ -120,50 +136,6 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
     }
   };
 
-  // 1b. Bagikan Langsung ke WhatsApp Tanpa Error (Link Sumber + Ringkasan + Preview Gambar Otomatis)
-  const handleShareToWhatsApp = () => {
-    setIsSharingNative(true);
-    try {
-      const encoded = encodeURIComponent(shareFullText);
-      const waWebUrl = `https://api.whatsapp.com/send?text=${encoded}`;
-      
-      const opened = window.open(waWebUrl, '_blank', 'noopener,noreferrer');
-      if (!opened) {
-        window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
-      }
-
-      if (onTrackShare) onTrackShare('whatsapp_direct');
-      triggerFeedback('✓ Membuka WhatsApp! Judul warta, ringkasan & link resmi siap dikirim.');
-    } catch {
-      const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(shareFullText)}`;
-      window.open(waUrl, '_blank', 'noopener,noreferrer');
-    } finally {
-      setTimeout(() => setIsSharingNative(false), 500);
-    }
-  };
-
-  // 2. Salin Tautan Saja
-  const handleCopyLink = async () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopiedLink(true);
-      if (onTrackShare) onTrackShare('copy_link');
-      triggerFeedback('✓ Tautan artikel berhasil disalin!');
-      setTimeout(() => setCopiedLink(false), 2500);
-    }
-  };
-
-  // 3. Salin Teks Lengkap + Tautan
-  const handleCopyFullText = async () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      await navigator.clipboard.writeText(shareFullText);
-      setCopiedText(true);
-      if (onTrackShare) onTrackShare('copy_full_text');
-      triggerFeedback('✓ Judul, ringkasan & tautan berhasil disalin!');
-      setTimeout(() => setCopiedText(false), 2500);
-    }
-  };
-
   // 4. Salin Gambar ke Clipboard
   const handleCopyImage = async () => {
     if (!article.imageUrl) return;
@@ -192,7 +164,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
         ]);
         setCopiedImage(true);
         if (onTrackShare) onTrackShare('copy_image');
-        triggerFeedback('✓ Foto berita tersalin ke clipboard! Siap di-paste di WhatsApp Web, Telegram, dsb.');
+        triggerFeedback('✓ Foto warta tersalin ke clipboard! Siap ditempel manual di aplikasi apa saja.');
         setTimeout(() => setCopiedImage(false), 3000);
         return;
       }
@@ -219,27 +191,13 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
       if (onTrackShare) onTrackShare('download_image');
-      triggerFeedback('✓ Foto warta berhasil diunduh ke galeri / folder download!');
+      triggerFeedback('✓ Foto warta berhasil diunduh ke galeri / folder unduhan!');
     } catch {
       window.open(article.imageUrl, '_blank');
     }
   };
 
-  // 6. Kirim ke WhatsApp Nomor Tertentu
-  const handleSendToSpecificWa = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanNumber = targetWaNumber.replace(/[^0-9]/g, '');
-    if (!cleanNumber || cleanNumber.length < 8) {
-      setWaSendError('Masukkan nomor WhatsApp yang valid (contoh: 08123456789 atau 628123456789)');
-      return;
-    }
-    const finalWaNumber = cleanNumber.startsWith('0') ? '62' + cleanNumber.slice(1) : cleanNumber;
-    const waUrl = `https://wa.me/${finalWaNumber}?text=${encodeURIComponent(shareFullText)}`;
-    if (onTrackShare) onTrackShare('whatsapp_direct');
-    window.open(waUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  // 7. Sitasi Format APA
+  // 6. Sitasi Format APA
   const generateApaCitation = () => {
     const authorName = article.author?.name || 'Redaksi Arun News';
     const year = new Date().getFullYear();
@@ -282,10 +240,10 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
           </div>
           <div>
             <h3 className="text-base sm:text-lg font-black text-sky-950 uppercase tracking-tight">
-              Bagikan Warta Berita
+              Bagikan Warta Berita (Manual Share)
             </h3>
             <p className="text-[11px] text-sky-700 font-bold">
-              Kirim gambar, teks ringkasan, dan tautan resmi ke aplikasi apa pun
+              Salin teks warta, gambar, dan tautan resmi untuk dibagikan secara manual
             </p>
           </div>
         </div>
@@ -336,58 +294,56 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
           </div>
         </div>
 
-        {/* 1. Tombol Utama: Bagikan Langsung ke WhatsApp Tanpa Error */}
+        {/* 1. Tombol Utama: Salin Teks Lengkap + Tautan Berita (Manual Share Paling Cepat) */}
         <div className="mb-3">
           <button
             type="button"
-            onClick={handleShareToWhatsApp}
-            disabled={isSharingNative}
-            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 via-green-600 to-emerald-700 hover:from-emerald-500 hover:to-green-500 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer border-2 border-emerald-400 active:scale-98"
-            title="Kirim berita lengkap dengan foto warta, ringkasan teks, dan tautan resmi langsung ke WhatsApp tanpa error"
+            onClick={handleCopyFullText}
+            className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-300 text-sky-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-lg transition-all flex items-center justify-center gap-2.5 cursor-pointer border-2 border-yellow-500 active:scale-98"
+            title="Salin judul warta, ringkasan dan tautan lengkap untuk ditempel manual ke aplikasi mana pun"
           >
-            <MessageCircle className="w-5 h-5 fill-white text-emerald-700 flex-shrink-0 animate-pulse" />
-            <span>Bagikan Langsung ke WhatsApp (Foto + Teks + Link)</span>
-            <ExternalLink className="w-4 h-4 text-emerald-200" />
+            {copiedText ? <Check className="w-5 h-5 text-sky-950" /> : <Copy className="w-5 h-5 text-sky-950" />}
+            <span>{copiedText ? '✓ Teks Berita & Tautan Berhasil Disalin!' : 'Salin Teks Lengkap + Tautan Berita'}</span>
           </button>
-          <p className="text-[10px] text-emerald-800 font-mono mt-1 text-center font-bold">
-            🟢 Membuka WhatsApp langsung dengan judul, gambar, teks berita &amp; tautan sumber resmi ke Portal Arun.
+          <p className="text-[10px] text-sky-800 font-mono mt-1 text-center font-bold">
+            📋 1-Klik Salin: Format rapi siap Anda paste secara manual ke WhatsApp, Telegram, email, atau catatan.
           </p>
         </div>
 
-        {/* 2. Tombol Cadangan: Bagikan Lengkap ke Sistem (Gambar, Teks & Link) */}
+        {/* 2. Tombol Bagikan Manual Sistem (Perangkat) */}
         <div className="mb-4">
           <button
             type="button"
             onClick={handleNativeShareFull}
             disabled={isSharingNative}
-            className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-yellow-400 via-amber-400 to-yellow-500 hover:from-yellow-300 hover:to-amber-400 text-sky-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-yellow-500 active:scale-98"
-            title="Bagikan gambar warta, teks, dan tautan langsung ke menu share perangkat Anda"
+            className="w-full py-3 px-4 rounded-xl bg-sky-900 hover:bg-sky-800 text-white font-black text-xs sm:text-sm uppercase tracking-wider shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer border border-sky-700 active:scale-98"
+            title="Buka menu berbagi bawaan sistem perangkat Anda"
           >
-            <Smartphone className="w-4 h-4 text-sky-950" />
-            <span>Bagikan ke Semua Aplikasi (Gambar, Teks &amp; Link)</span>
-            <ExternalLink className="w-3.5 h-3.5 text-sky-950" />
+            <Smartphone className="w-4 h-4 text-yellow-400" />
+            <span>Bagikan Manual via Menu Sistem Perangkat</span>
+            <ExternalLink className="w-3.5 h-3.5 text-sky-300" />
           </button>
           <p className="text-[10px] text-slate-500 font-mono mt-1 text-center">
-            Membuka jendela berbagi perangkat (WhatsApp, IG Stories, Telegram, Bluetooth, dsb.)
+            Membuka jendela berbagi bawaan OS perangkat Anda (Pilih aplikasi secara manual)
           </p>
         </div>
 
-        {/* 2. Tindakan Cepat (Salin Teks, Gambar, Unduh Foto, Salin Link) */}
+        {/* 3. Tindakan Cepat (Salin Teks, Salin Link, Gambar, Unduh, Sitasi) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-          {/* Salin Teks Lengkap + Link */}
+          {/* Salin Link Saja */}
           <button
             type="button"
-            onClick={handleCopyFullText}
+            onClick={handleCopyLink}
             className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center text-center gap-1 cursor-pointer ${
-              copiedText 
+              copiedLink 
                 ? 'bg-emerald-600 text-white border-emerald-500' 
                 : 'bg-sky-50 hover:bg-yellow-100 text-sky-950 border-sky-200'
             }`}
-            title="Salin judul berita, ringkasan, dan tautan lengkap"
+            title="Salin link artikel berita"
           >
-            {copiedText ? <Check className="w-4 h-4 text-white" /> : <FileText className="w-4 h-4 text-sky-700" />}
-            <span className="text-[10px] font-black uppercase">Teks + Link</span>
-            <span className="text-[9px] font-mono opacity-80">{copiedText ? 'Tersalin!' : 'Salin Semua'}</span>
+            {copiedLink ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-sky-700" />}
+            <span className="text-[10px] font-black uppercase">Salin Link</span>
+            <span className="text-[9px] font-mono opacity-80">{copiedLink ? 'Tersalin!' : 'Tautan Saja'}</span>
           </button>
 
           {/* Salin Gambar */}
@@ -399,7 +355,7 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
                 ? 'bg-emerald-600 text-white border-emerald-500' 
                 : 'bg-sky-50 hover:bg-yellow-100 text-sky-950 border-sky-200'
             }`}
-            title="Salin gambar berita ke clipboard untuk dipaste di chat / aplikasi"
+            title="Salin gambar warta ke clipboard untuk dipaste di chat / aplikasi"
           >
             {copiedImage ? <Check className="w-4 h-4 text-white" /> : <ImageIcon className="w-4 h-4 text-sky-700" />}
             <span className="text-[10px] font-black uppercase">Salin Gambar</span>
@@ -418,77 +374,29 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
             <span className="text-[9px] font-mono opacity-80">Simpan File</span>
           </button>
 
-          {/* Salin Link Saja */}
+          {/* Sitasi APA */}
           <button
             type="button"
-            onClick={handleCopyLink}
+            onClick={handleCopyCitation}
             className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col items-center justify-center text-center gap-1 cursor-pointer ${
-              copiedLink 
-                ? 'bg-emerald-600 text-white border-emerald-500' 
+              copiedCitation
+                ? 'bg-emerald-600 text-white border-emerald-500'
                 : 'bg-sky-50 hover:bg-yellow-100 text-sky-950 border-sky-200'
             }`}
-            title="Salin link artikel berita"
+            title="Salin format kutipan ilmiah standar APA"
           >
-            {copiedLink ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4 text-sky-700" />}
-            <span className="text-[10px] font-black uppercase">Salin Link</span>
-            <span className="text-[9px] font-mono opacity-80">{copiedLink ? 'Tersalin!' : 'Tautan Saja'}</span>
+            {copiedCitation ? <Check className="w-4 h-4 text-white" /> : <Quote className="w-4 h-4 text-sky-700" />}
+            <span className="text-[10px] font-black uppercase">Sitasi APA</span>
+            <span className="text-[9px] font-mono opacity-80">{copiedCitation ? 'Tersalin!' : 'Kutipan'}</span>
           </button>
         </div>
 
-        {/* 3. Form Kirim Langsung ke Nomor WhatsApp Tujuan */}
-        <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-300">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs font-bold font-mono text-emerald-950 uppercase flex items-center gap-1.5">
-              <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
-              Kirim ke WhatsApp Tujuan:
-            </span>
-            <span className="text-[9px] font-bold text-emerald-800 bg-emerald-200/60 px-1.5 py-0.5 rounded">
-              Langsung Chat
-            </span>
-          </div>
-          <form onSubmit={handleSendToSpecificWa} className="flex gap-1.5">
-            <input
-              type="tel"
-              value={targetWaNumber}
-              onChange={(e) => {
-                setTargetWaNumber(e.target.value);
-                if (waSendError) setWaSendError(null);
-              }}
-              placeholder="08123456789 atau 62812..."
-              className="flex-1 px-3 py-1.5 text-xs font-mono bg-white border border-emerald-300 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
-            />
-            <button
-              type="submit"
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-xs flex items-center gap-1 cursor-pointer transition-colors"
-            >
-              <Send className="w-3 h-3" />
-              <span>Kirim</span>
-            </button>
-          </form>
-          {waSendError && (
-            <p className="text-[10px] text-rose-600 font-bold mt-1">⚠️ {waSendError}</p>
-          )}
-        </div>
-
-        {/* 4. Grid Media Sosial Populer */}
+        {/* 4. Pilihan Aplikasi Lain (Tanpa WhatsApp Otomatis) */}
         <div className="space-y-1.5 mb-4">
           <label className="block text-[11px] font-bold text-sky-950 font-mono uppercase">
-            Pilihan Aplikasi Sosial Media Populer:
+            Salin &amp; Bagikan ke Platform Lain:
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {/* WhatsApp */}
-            <a
-              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(shareFullText)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => onTrackShare && onTrackShare('whatsapp')}
-              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow-2xs"
-              title="Bagikan ke WhatsApp"
-            >
-              <MessageCircle className="w-3.5 h-3.5 fill-current" />
-              <span>WhatsApp</span>
-            </a>
-
             {/* Telegram */}
             <a
               href={`https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(`📰 ${article.title}\n\n${cleanExcerpt}`)}`}
@@ -546,45 +454,6 @@ export const UniversalShareModal: React.FC<UniversalShareModalProps> = ({
               </svg>
               <span>LinkedIn</span>
             </a>
-
-            {/* Threads */}
-            <a
-              href={`https://www.threads.net/intent/post?text=${encodeURIComponent(shareFullText)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => onTrackShare && onTrackShare('threads')}
-              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-black hover:bg-neutral-800 text-white font-bold text-xs transition-colors shadow-2xs"
-              title="Bagikan ke Threads"
-            >
-              <span className="font-mono font-black text-xs">@</span>
-              <span>Threads</span>
-            </a>
-
-            {/* Email */}
-            <a
-              href={`mailto:?subject=${encodeURIComponent(article.title)}&body=${encodeURIComponent(shareFullText)}`}
-              onClick={() => onTrackShare && onTrackShare('email')}
-              className="flex items-center justify-center gap-1.5 p-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs transition-colors shadow-2xs"
-              title="Kirim via Email"
-            >
-              <span>✉️</span>
-              <span>Email</span>
-            </a>
-
-            {/* Sitasi APA */}
-            <button
-              type="button"
-              onClick={handleCopyCitation}
-              className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-bold transition-colors shadow-2xs border cursor-pointer ${
-                copiedCitation
-                  ? 'bg-emerald-600 text-white border-emerald-500'
-                  : 'bg-amber-100 hover:bg-amber-200 text-amber-950 border-amber-300'
-              }`}
-              title="Salin Sitasi Ilmiah format APA"
-            >
-              <Quote className="w-3.5 h-3.5 text-amber-800" />
-              <span>{copiedCitation ? 'Tersalin!' : 'Sitasi APA'}</span>
-            </button>
           </div>
         </div>
 

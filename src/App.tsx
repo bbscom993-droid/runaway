@@ -28,7 +28,8 @@ import {
   INITIAL_TRANSPORT_SCHEDULES,
   DEFAULT_AD_BANK_ACCOUNT,
   DEFAULT_AD_BANK_ACCOUNTS,
-  DEFAULT_LEGALITAS_SETTINGS
+  DEFAULT_LEGALITAS_SETTINGS,
+  DEFAULT_WHATSAPP_API_SETTINGS
 } from './data/newsData';
 import { 
   NewsArticle, 
@@ -409,6 +410,9 @@ export default function App() {
         }
         if (!parsed.legalitasSettings) {
           parsed.legalitasSettings = DEFAULT_LEGALITAS_SETTINGS;
+        }
+        if (!parsed.whatsappApiSettings) {
+          parsed.whatsappApiSettings = DEFAULT_WHATSAPP_API_SETTINGS;
         }
         if (parsed.moduleToggles) {
           parsed.moduleToggles.showTicker = true;

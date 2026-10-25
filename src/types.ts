@@ -376,6 +376,23 @@ export interface LegalitasSettings {
   legalNotes?: string;
 }
 
+export interface WhatsAppApiSettings {
+  isEnabled: boolean;
+  provider: 'fonnte' | 'wablas' | 'meta_cloud' | 'ruangwa' | 'custom_webhook';
+  apiKey: string;
+  senderNumber: string;
+  targetNumberOrGroup: string;
+  webhookUrl?: string;
+  metaWabaId?: string;
+  metaPhoneId?: string;
+  apiVersion?: string;
+  messageTemplate: string;
+  autoBroadcastOnPublish: boolean;
+  lastTestStatus?: 'idle' | 'success' | 'failed';
+  lastTestMessage?: string;
+  lastTestTimestamp?: string;
+}
+
 export interface SiteSettings {
   portalName: string;
   portalTagline: string;
@@ -399,6 +416,7 @@ export interface SiteSettings {
   bankAccountForAds?: BankAccountInfo;
   adBankAccounts?: BankAccountInfo[];
   legalitasSettings?: LegalitasSettings;
+  whatsappApiSettings?: WhatsAppApiSettings;
   seoSettings?: SEOSettings;
   semSettings?: SEMSettings;
   loginThemeSettings?: LoginThemeSettings;

@@ -1,4 +1,4 @@
-import { NewsArticle, Category, WeatherInfo, TrendingTopic, PollData, EditorialPiece, VideoNews, PhotoStory, SiteSettings, TickerSettings, EditorialUser, EditorialStaffMember, OfficialContacts, TransportSchedule, BankAccountInfo, LegalitasSettings } from '../types';
+import { NewsArticle, Category, WeatherInfo, TrendingTopic, PollData, EditorialPiece, VideoNews, PhotoStory, SiteSettings, TickerSettings, EditorialUser, EditorialStaffMember, OfficialContacts, TransportSchedule, BankAccountInfo, LegalitasSettings, WhatsAppApiSettings } from '../types';
 import { DEFAULT_SEO_SETTINGS } from '../utils/seoEngine';
 import { DEFAULT_SEM_SETTINGS } from '../utils/semEngine';
 
@@ -734,6 +734,21 @@ export const DEFAULT_LEGALITAS_SETTINGS: LegalitasSettings = {
   legalNotes: 'Penyelenggaraan media pers independen berlandaskan UU Pers No. 40 Tahun 1999 dan Pedoman Pemberitaan Media Siber.',
 };
 
+export const DEFAULT_WHATSAPP_API_SETTINGS: WhatsAppApiSettings = {
+  isEnabled: false,
+  provider: 'fonnte',
+  apiKey: '',
+  senderNumber: '0895626941900',
+  targetNumberOrGroup: '',
+  webhookUrl: 'https://api.fonnte.com/send',
+  metaWabaId: '',
+  metaPhoneId: '',
+  apiVersion: 'v21.0',
+  messageTemplate: `📰 *[{category}] {title}*\n\n{excerpt}\n\n👉 *Baca Selengkapnya di Portal Arun News:*\n{url}`,
+  autoBroadcastOnPublish: false,
+  lastTestStatus: 'idle',
+};
+
 export const INITIAL_SITE_SETTINGS: SiteSettings = {
   portalName: 'Arun News',
   portalTagline: 'Jembatan Informasi Nusantara',
@@ -756,6 +771,7 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   bankAccountForAds: DEFAULT_AD_BANK_ACCOUNT,
   adBankAccounts: DEFAULT_AD_BANK_ACCOUNTS,
   legalitasSettings: DEFAULT_LEGALITAS_SETTINGS,
+  whatsappApiSettings: DEFAULT_WHATSAPP_API_SETTINGS,
   seoSettings: DEFAULT_SEO_SETTINGS,
   semSettings: DEFAULT_SEM_SETTINGS,
   loginThemeSettings: {

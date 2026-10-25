@@ -47,6 +47,7 @@ import {
   ShieldCheck,
   UserX,
   MessageSquare,
+  MessageCircle,
   ThumbsDown,
   RefreshCcw,
   FileCheck,
@@ -131,6 +132,7 @@ import {
 } from '../../services/dbClient';
 import { SocialAutoShareDispatcherModal } from './SocialAutoShareDispatcherModal';
 import { SocialAutoShareSettingsView } from './SocialAutoShareSettingsView';
+import { WhatsAppApiSettingsView } from './WhatsAppApiSettingsView';
 import { CategoryEditorModal } from './CategoryEditorModal';
 import { renderCategoryIcon } from '../../utils/categoryIconHelper';
 
@@ -1468,6 +1470,26 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
               </div>
               <span className="text-[10px] bg-sky-950 text-yellow-300 px-2 py-0.5 rounded-full font-mono font-bold">
                 {(siteSettings.portalThemeSettings?.colorTheme || 'sky_gold').toUpperCase()}
+              </span>
+            </button>
+
+            {/* Nav item: API WhatsApp & Gateway Rekomendasi */}
+            <button
+              onClick={() => setActiveTab('social_share')}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all text-left ${
+                activeTab === 'social_share'
+                  ? 'bg-yellow-400 text-sky-950 shadow-2xs font-black'
+                  : 'text-slate-700 hover:bg-emerald-50 hover:text-emerald-950'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <MessageCircle className="w-4 h-4 text-emerald-600" />
+                <span>API WhatsApp &amp; Sindikasi</span>
+              </div>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-bold ${
+                siteSettings.whatsappApiSettings?.isEnabled ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'
+              }`}>
+                {siteSettings.whatsappApiSettings?.isEnabled ? 'AKTIF' : 'API'}
               </span>
             </button>
 
@@ -4624,6 +4646,26 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
           )}
 
           {/* ========================================================= */}
+          {/* TAB: API WHATSAPP REKOMENDASI & SINDIKASI SOSIAL          */}
+          {/* ========================================================= */}
+          {activeTab === 'social_share' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <WhatsAppApiSettingsView
+                siteSettings={siteSettings}
+                setSiteSettings={setSiteSettings}
+                showToast={showToast}
+                sampleArticle={articles[0]}
+              />
+              <SocialAutoShareSettingsView
+                siteSettings={siteSettings}
+                setSiteSettings={setSiteSettings}
+                showToast={showToast}
+                sampleArticle={articles[0]}
+              />
+            </div>
+          )}
+
+          {/* ========================================================= */}
           {/* TAB 15: SETTINGS & MODULE TOGGLES */}
           {/* ========================================================= */}
           {activeTab === 'settings' && (
@@ -6545,6 +6587,16 @@ export const EditorialDashboard: React.FC<EditorialDashboardProps> = ({
                     </div>
                   );
                 })()}
+              </div>
+
+              {/* Integrasi API WhatsApp Gateway Rekomendasi Redaksi */}
+              <div className="pt-2">
+                <WhatsAppApiSettingsView
+                  siteSettings={siteSettings}
+                  setSiteSettings={setSiteSettings}
+                  showToast={showToast}
+                  sampleArticle={articles[0]}
+                />
               </div>
 
               {/* Data Reset */}
