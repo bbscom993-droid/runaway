@@ -69,7 +69,7 @@ import { SavedArticlesDrawer } from './components/SavedArticlesDrawer';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { NewsletterBanner } from './components/NewsletterBanner';
 import { WartaNotificationWidget } from './components/WartaNotificationWidget';
-import { TerkiniGoogleSection } from './components/TerkiniGoogleSection';
+import { SidebarAdColumn } from './components/SidebarAdColumn';
 import { WeatherForecastWidget } from './components/WeatherForecastWidget';
 import { applyPortalTheme, DEFAULT_PORTAL_THEME } from './utils/themeEngine';
 import { Footer } from './components/Footer';
@@ -1712,12 +1712,8 @@ export default function App() {
                 onSimulateBreakingNews={handleSimulateBreakingNews}
               />
 
-              {/* Feature: Terkini dari Google via Search Grounding */}
-              <TerkiniGoogleSection />
-
-              {/* Feature 2: Sidebar Banner Ad */}
-              <AdBanner
-                type="sidebar"
+              {/* Feature: Kolom Iklan & Mitra Strategis (Pengganti Terkini Google) */}
+              <SidebarAdColumn
                 slot={sidebarSlot}
                 siteSettings={siteSettings}
                 enablePlacements={enableAdPlacements}
